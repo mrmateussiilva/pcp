@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import {
   BarChart3,
   FileText,
+  Flame,
   FolderTree,
   Home,
   Info,
@@ -25,6 +26,7 @@ import { BolsinhasPage } from "./pages/BolsinhasPage";
 import { CortadorPage } from "./pages/CortadorPage";
 import { ConsumoPage } from "./pages/ConsumoPage";
 import { ShopeePage } from "./pages/ShopeePage";
+import { CalandragemPage } from "./pages/CalandragemPage";
 import { NotepadPage } from "./pages/NotepadPage";
 import { WhatsappPage } from "./pages/WhatsappPage";
 import { AboutPage } from "./pages/AboutPage";
@@ -47,6 +49,8 @@ export function ModuleIcon({ id, className = "w-4 h-4" }: { id: ModuloId; classN
       return <BarChart3 className={className} />;
     case "shopee":
       return <PackageCheck className={className} />;
+    case "calandragem":
+      return <Flame className={className} />;
     case "notepad":
       return <FileText className={className} />;
     case "whatsapp":
@@ -103,6 +107,18 @@ export default function App() {
           : st.monitorando
           ? { text: "monitorando", cor: "green" }
           : undefined,
+      }));
+    });
+    invoke<{ rodando: boolean; porta: number }>("calandragem_status").then((st) => {
+      setStatusMap((prev) => ({
+        ...prev,
+        calandragem: st.rodando ? { text: `ativa :${st.porta}`, cor: "green" } : undefined,
+      }));
+    });
+    invoke<{ monitorando: boolean }>("consumo_status").then((st) => {
+      setStatusMap((prev) => ({
+        ...prev,
+        consumo: st.monitorando ? { text: "observando", cor: "green" } : undefined,
       }));
     });
 
@@ -163,6 +179,29 @@ export default function App() {
       }
     );
 
+    const unCal = listen<{ rodando: boolean; porta: number }>(
+      "calandragem-status",
+      (e) => {
+        setStatusMap((prev) => ({
+          ...prev,
+          calandragem: e.payload.rodando
+            ? { text: `ativa :${e.payload.porta}`, cor: "green" }
+            : undefined,
+        }));
+      }
+    );
+    const unConsumo = listen<{ monitorando: boolean }>(
+      "consumo-status",
+      (e) => {
+        setStatusMap((prev) => ({
+          ...prev,
+          consumo: e.payload.monitorando
+            ? { text: "observando", cor: "green" }
+            : undefined,
+        }));
+      }
+    );
+
     return () => {
       unNote.then((fn) => fn());
       unZap.then((fn) => fn());
@@ -170,6 +209,8 @@ export default function App() {
       unBol.then((fn) => fn());
       unCort.then((fn) => fn());
       unShopee.then((fn) => fn());
+      unCal.then((fn) => fn());
+      unConsumo.then((fn) => fn());
     };
   }, []);
 
@@ -333,6 +374,7 @@ export default function App() {
         {atual === "cortador" && <CortadorPage />}
         {atual === "consumo" && <ConsumoPage />}
         {atual === "shopee" && <ShopeePage />}
+        {atual === "calandragem" && <CalandragemPage />}
         {atual === "notepad" && <NotepadPage />}
         {atual === "whatsapp" && <WhatsappPage />}
         {atual === "about" && <AboutPage />}

@@ -1,10 +1,15 @@
+use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use rayon::prelude::*;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::BufReader;
-use std::path::Path;
-use std::time::Instant;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant, UNIX_EPOCH};
+use tauri::{AppHandle, Emitter};
 use tiff::decoder::{Decoder, Limits};
 use tiff::tags::Tag;
 
@@ -31,7 +36,7 @@ pub struct ConsumoItem {
     pub obs: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Default)]
 pub struct ConsumoResultado {
     pub arquivos_lidos: usize,
     pub arquivos_erro: usize,
@@ -40,6 +45,79 @@ pub struct ConsumoResultado {
     pub por_categoria: HashMap<String, f64>,
     pub por_tecido: HashMap<String, f64>,
     pub itens: Vec<ConsumoItem>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ConsumoStatus {
+    pub monitorando: bool,
+    pub pasta: String,
+}
+
+pub struct ConsumoService {
+    stop_flag: Mutex<Option<Arc<AtomicBool>>>,
+    pasta: Mutex<String>,
+    ultimo: Arc<Mutex<Option<ConsumoResultado>>>,
+}
+
+impl ConsumoService {
+    pub fn new() -> Self {
+        Self {
+            stop_flag: Mutex::new(None),
+            pasta: Mutex::new(String::new()),
+            ultimo: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub fn status(&self) -> ConsumoStatus {
+        let monitorando = self
+            .stop_flag
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|f| !f.load(Ordering::Relaxed))
+            .unwrap_or(false);
+        ConsumoStatus {
+            monitorando,
+            pasta: self.pasta.lock().unwrap().clone(),
+        }
+    }
+
+    pub fn ultimo_resultado(&self) -> Option<ConsumoResultado> {
+        self.ultimo.lock().unwrap().clone()
+    }
+
+    pub fn start(&self, app: AppHandle, pasta: PathBuf) -> Result<ConsumoStatus, String> {
+        if !pasta.is_dir() {
+            return Err("Selecione uma pasta válida para observar.".to_string());
+        }
+        self.stop(&app);
+
+        *self.pasta.lock().unwrap() = pasta.to_string_lossy().into_owned();
+        let stop = Arc::new(AtomicBool::new(false));
+        *self.stop_flag.lock().unwrap() = Some(stop.clone());
+        let ultimo = self.ultimo.clone();
+        let app_clone = app.clone();
+
+        thread::spawn(move || {
+            watch_loop(app_clone, pasta, stop, ultimo);
+        });
+
+        let st = self.status();
+        let _ = app.emit("consumo-status", st.clone());
+        Ok(st)
+    }
+
+    pub fn stop(&self, app: &AppHandle) -> ConsumoStatus {
+        if let Some(flag) = self.stop_flag.lock().unwrap().take() {
+            flag.store(true, Ordering::Relaxed);
+        }
+        let st = ConsumoStatus {
+            monitorando: false,
+            pasta: self.pasta.lock().unwrap().clone(),
+        };
+        let _ = app.emit("consumo-status", st.clone());
+        st
+    }
 }
 
 fn descobrir_tecido(nome: &str) -> String {
@@ -111,13 +189,10 @@ fn extrair_dados_arquivo(path: &Path) -> ConsumoItem {
         }
     };
 
-    let unit = decoder
-        .get_tag_u32(Tag::ResolutionUnit)
-        .unwrap_or(2);
+    let unit = decoder.get_tag_u32(Tag::ResolutionUnit).unwrap_or(2);
     let mut dpi_x = ler_resolucao(&mut decoder, Tag::XResolution).unwrap_or(72.0);
     let mut dpi_y = ler_resolucao(&mut decoder, Tag::YResolution).unwrap_or(72.0);
     if unit == 3 {
-        // pixels/cm -> pixels/inch
         dpi_x *= 2.54;
         dpi_y *= 2.54;
     }
@@ -182,30 +257,7 @@ fn extrair_dados_arquivo(path: &Path) -> ConsumoItem {
     }
 }
 
-pub fn analisar_pasta(diretorio: &Path) -> Result<ConsumoResultado, String> {
-    let inicio = Instant::now();
-    let entries = fs::read_dir(diretorio).map_err(|e| format!("Erro ao abrir pasta: {e}"))?;
-
-    let mut arquivos = Vec::new();
-    for entry in entries.flatten() {
-        let p = entry.path();
-        if p.is_file() {
-            if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                let low = ext.to_lowercase();
-                if low == "tif" || low == "tiff" {
-                    arquivos.push(p);
-                }
-            }
-        }
-    }
-
-    arquivos.sort();
-
-    let itens: Vec<ConsumoItem> = arquivos
-        .par_iter()
-        .map(|p| extrair_dados_arquivo(p))
-        .collect();
-
+fn montar_resultado(itens: Vec<ConsumoItem>, tempo_s: f64) -> ConsumoResultado {
     let mut arquivos_lidos = 0usize;
     let mut arquivos_erro = 0usize;
     let mut consumo_total_cm = 0.0f64;
@@ -227,13 +279,142 @@ pub fn analisar_pasta(diretorio: &Path) -> Result<ConsumoResultado, String> {
         }
     }
 
-    Ok(ConsumoResultado {
+    ConsumoResultado {
         arquivos_lidos,
         arquivos_erro,
         consumo_total_cm,
-        tempo_s: inicio.elapsed().as_secs_f64(),
+        tempo_s,
         por_categoria,
         por_tecido,
         itens,
+    }
+}
+
+pub fn analisar_pasta(diretorio: &Path) -> Result<ConsumoResultado, String> {
+    let inicio = Instant::now();
+    let entries = fs::read_dir(diretorio).map_err(|e| format!("Erro ao abrir pasta: {e}"))?;
+
+    let mut arquivos = Vec::new();
+    for entry in entries.flatten() {
+        let p = entry.path();
+        if p.is_file() {
+            if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                let low = ext.to_lowercase();
+                if low == "tif" || low == "tiff" {
+                    arquivos.push(p);
+                }
+            }
+        }
+    }
+    arquivos.sort();
+
+    let itens: Vec<ConsumoItem> = arquivos
+        .par_iter()
+        .map(|p| extrair_dados_arquivo(p))
+        .collect();
+
+    Ok(montar_resultado(itens, inicio.elapsed().as_secs_f64()))
+}
+
+fn file_sig(p: &Path) -> (u64, u64) {
+    fs::metadata(p)
+        .map(|m| {
+            let ms = m
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            (m.len(), ms)
+        })
+        .unwrap_or((0, 0))
+}
+
+fn watch_loop(
+    app: AppHandle,
+    pasta: PathBuf,
+    stop: Arc<AtomicBool>,
+    ultimo: Arc<Mutex<Option<ConsumoResultado>>>,
+) {
+    let (tx, rx) = std::sync::mpsc::channel::<notify::Result<Event>>();
+    let _watcher = RecommendedWatcher::new(
+        move |res| {
+            let _ = tx.send(res);
+        },
+        Config::default(),
+    )
+    .and_then(|mut w| {
+        w.watch(&pasta, RecursiveMode::NonRecursive)?;
+        Ok(w)
     })
+    .ok();
+
+    let mut cache: HashMap<String, (u64, u64, ConsumoItem)> = HashMap::new();
+    let mut ultima_lista_sig: Vec<(String, u64, u64)> = Vec::new();
+
+    while !stop.load(Ordering::Relaxed) {
+        while rx.try_recv().is_ok() {}
+
+        let inicio = Instant::now();
+        let mut arquivos: Vec<(String, u64, u64, PathBuf)> = Vec::new();
+        if let Ok(entries) = fs::read_dir(&pasta) {
+            for e in entries.flatten() {
+                let p = e.path();
+                if p.is_file() {
+                    if let Some(ext) = p.extension().and_then(|x| x.to_str()) {
+                        let low = ext.to_lowercase();
+                        if low == "tif" || low == "tiff" {
+                            let nome = p
+                                .file_name()
+                                .map(|s| s.to_string_lossy().into_owned())
+                                .unwrap_or_default();
+                            let (sz, mt) = file_sig(&p);
+                            arquivos.push((nome, sz, mt, p));
+                        }
+                    }
+                }
+            }
+        }
+        arquivos.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+
+        let nova_sig: Vec<(String, u64, u64)> = arquivos
+            .iter()
+            .map(|(n, s, m, _)| (n.clone(), *s, *m))
+            .collect();
+
+        if nova_sig != ultima_lista_sig || ultimo.lock().unwrap().is_none() {
+            let para_ler: Vec<(String, u64, u64, PathBuf)> = arquivos
+                .iter()
+                .filter(|(n, s, m, _)| {
+                    cache
+                        .get(n)
+                        .map(|(cs, cm, _)| cs != s || cm != m)
+                        .unwrap_or(true)
+                })
+                .cloned()
+                .collect();
+
+            if !para_ler.is_empty() {
+                let novos: Vec<(String, u64, u64, ConsumoItem)> = para_ler
+                    .par_iter()
+                    .map(|(n, s, m, p)| (n.clone(), *s, *m, extrair_dados_arquivo(p)))
+                    .collect();
+                for (n, s, m, item) in novos {
+                    cache.insert(n, (s, m, item));
+                }
+            }
+
+            let itens: Vec<ConsumoItem> = arquivos
+                .iter()
+                .filter_map(|(n, _, _, _)| cache.get(n).map(|(_, _, it)| it.clone()))
+                .collect();
+
+            let res = montar_resultado(itens, inicio.elapsed().as_secs_f64());
+            *ultimo.lock().unwrap() = Some(res.clone());
+            let _ = app.emit("consumo-atualizado", res);
+            ultima_lista_sig = nova_sig;
+        }
+
+        thread::sleep(Duration::from_secs(2));
+    }
 }

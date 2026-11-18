@@ -2,7 +2,9 @@ mod commands;
 mod core;
 
 use core::bolsinhas::BolsinhasService;
+use core::calandragem_srv::CalandragemService;
 use core::config::ConfigManager;
+use core::consumo::ConsumoService;
 use core::cortador::CortadorService;
 use core::notepad_srv::NotepadService;
 use core::pastas;
@@ -33,6 +35,8 @@ pub fn run() {
             app.manage(BolsinhasService::new());
             app.manage(CortadorService::new());
             app.manage(ShopeeService::new());
+            app.manage(CalandragemService::new());
+            app.manage(ConsumoService::new());
 
             if cfg_inicial.criar_ao_abrir {
                 let cfg_clone = cfg_inicial.clone();
@@ -92,6 +96,30 @@ pub fn run() {
                 }
             }
 
+            // Auto-iniciar Painel de Calandragem (padrão: true)
+            let cal_sec = cfg_inicial.secoes.get("calandragem");
+            let cal_auto = cal_sec
+                .and_then(|s| s.get("auto_iniciar"))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(true);
+            if cal_auto {
+                let cal_porta = cal_sec
+                    .and_then(|s| s.get("porta"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(8767) as u16;
+                let ws_port = cfg_inicial
+                    .secoes
+                    .get("notepad")
+                    .and_then(|s| s.get("ws_port"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(8765) as u16;
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let srv = handle.state::<CalandragemService>();
+                    let _ = srv.start(handle.clone(), cal_porta, ws_port).await;
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -113,6 +141,11 @@ pub fn run() {
             commands::whatsapp::whatsapp_iniciar,
             commands::whatsapp::whatsapp_parar,
             commands::consumo::consumo_analisar,
+            commands::consumo::consumo_get_pasta,
+            commands::consumo::consumo_status,
+            commands::consumo::consumo_resultado_atual,
+            commands::consumo::consumo_iniciar_monitor,
+            commands::consumo::consumo_parar_monitor,
             commands::tiff::tiff_pasta_inicial,
             commands::tiff::tiff_status,
             commands::tiff::tiff_counters,
@@ -138,6 +171,11 @@ pub fn run() {
             commands::shopee::shopee_iniciar,
             commands::shopee::shopee_parar,
             commands::shopee::shopee_executar_uma_vez,
+            commands::calandragem::calandragem_get_config,
+            commands::calandragem::calandragem_save_config,
+            commands::calandragem::calandragem_status,
+            commands::calandragem::calandragem_iniciar,
+            commands::calandragem::calandragem_parar,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
