@@ -1,0 +1,10 @@
+pub mod bolsinhas;
+pub mod config;
+pub mod consumo;
+pub mod cortador;
+pub mod global_log;
+pub mod imaging;
+pub mod notepad_srv;
+pub mod pastas;
+pub mod tiff_proc;
+pub mod zap_srv;
