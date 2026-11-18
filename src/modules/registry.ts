@@ -6,6 +6,7 @@ export type ModuloId =
   | "cortador"
   | "consumo"
   | "shopee"
+  | "calandragem"
   | "notepad"
   | "whatsapp";
 
@@ -15,7 +16,7 @@ export interface ModuloMeta {
   nome: string;
   icone: string;
   descricao: string;
-  cor: "emerald" | "sky" | "amber" | "violet" | "rose" | "indigo" | "teal" | "orange";
+  cor: "emerald" | "sky" | "amber" | "violet" | "rose" | "indigo" | "teal" | "orange" | "cyan";
   pronto: boolean;
 }
 
@@ -75,6 +76,15 @@ export const MODULOS: ModuloMeta[] = [
     icone: "📦",
     descricao: "Pareia PDFs da Shopee com fotos do WhatsApp e monta na Declaração de Conteúdo.",
     cor: "orange",
+    pronto: true,
+  },
+  {
+    id: "calandragem",
+    grupo: "PRODUÇÃO",
+    nome: "Calandragem",
+    icone: "🔥",
+    descricao: "Painel de fila de calandragem sincronizado com o Notepad e acessível na rede.",
+    cor: "cyan",
     pronto: true,
   },
   {

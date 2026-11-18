@@ -1,4 +1,5 @@
 pub mod bolsinhas;
+pub mod calandragem_srv;
 pub mod config;
 pub mod consumo;
 pub mod cortador;

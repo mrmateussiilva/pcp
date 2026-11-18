@@ -20,6 +20,7 @@ const ACCENTS = {
   teal: "from-teal-500/15 to-teal-500/5 text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-500/20",
   orange:
     "from-orange-500/15 to-orange-500/5 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/20",
+  cyan: "from-cyan-500/15 to-cyan-500/5 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/20",
 };
 
 export function HomePage({ onAbrir }: HomePageProps) {
