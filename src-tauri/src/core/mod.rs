@@ -6,5 +6,6 @@ pub mod global_log;
 pub mod imaging;
 pub mod notepad_srv;
 pub mod pastas;
+pub mod shopee;
 pub mod tiff_proc;
 pub mod zap_srv;

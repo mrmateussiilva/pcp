@@ -5,6 +5,7 @@ export type ModuloId =
   | "bolsinhas"
   | "cortador"
   | "consumo"
+  | "shopee"
   | "notepad"
   | "whatsapp";
 
@@ -14,7 +15,7 @@ export interface ModuloMeta {
   nome: string;
   icone: string;
   descricao: string;
-  cor: "emerald" | "sky" | "amber" | "violet" | "rose" | "indigo" | "teal";
+  cor: "emerald" | "sky" | "amber" | "violet" | "rose" | "indigo" | "teal" | "orange";
   pronto: boolean;
 }
 
@@ -65,6 +66,15 @@ export const MODULOS: ModuloMeta[] = [
     icone: "📊",
     descricao: "Calcula consumo de tecido de uma pasta de TIFFs, com gráficos.",
     cor: "rose",
+    pronto: true,
+  },
+  {
+    id: "shopee",
+    grupo: "PRODUÇÃO",
+    nome: "Fichas Shopee",
+    icone: "📦",
+    descricao: "Pareia PDFs da Shopee com fotos do WhatsApp e monta na Declaração de Conteúdo.",
+    cor: "orange",
     pronto: true,
   },
   {

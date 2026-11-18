@@ -3,5 +3,6 @@ pub mod consumo;
 pub mod cortador;
 pub mod notepad;
 pub mod pastas;
+pub mod shopee;
 pub mod tiff;
 pub mod whatsapp;

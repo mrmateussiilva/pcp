@@ -6,6 +6,7 @@ use core::config::ConfigManager;
 use core::cortador::CortadorService;
 use core::notepad_srv::NotepadService;
 use core::pastas;
+use core::shopee::ShopeeService;
 use core::tiff_proc::TiffService;
 use core::zap_srv::ZapService;
 use std::path::PathBuf;
@@ -31,6 +32,7 @@ pub fn run() {
             app.manage(TiffService::new());
             app.manage(BolsinhasService::new());
             app.manage(CortadorService::new());
+            app.manage(ShopeeService::new());
 
             if cfg_inicial.criar_ao_abrir {
                 let cfg_clone = cfg_inicial.clone();
@@ -129,6 +131,13 @@ pub fn run() {
             commands::cortador::cortador_rodando,
             commands::cortador::cortador_executar_auto,
             commands::cortador::cortador_executar_medidas,
+            commands::shopee::shopee_get_config,
+            commands::shopee::shopee_save_config,
+            commands::shopee::shopee_status,
+            commands::shopee::shopee_counters,
+            commands::shopee::shopee_iniciar,
+            commands::shopee::shopee_parar,
+            commands::shopee::shopee_executar_uma_vez,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
