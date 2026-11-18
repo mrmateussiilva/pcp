@@ -6,9 +6,11 @@ import {
   FileText,
   FolderTree,
   Home,
+  Info,
   Layers,
   MessageSquare,
   Moon,
+  PackageCheck,
   Printer,
   Scissors,
   ShoppingBag,
@@ -22,8 +24,10 @@ import { TiffProcessorPage } from "./pages/TiffProcessorPage";
 import { BolsinhasPage } from "./pages/BolsinhasPage";
 import { CortadorPage } from "./pages/CortadorPage";
 import { ConsumoPage } from "./pages/ConsumoPage";
+import { ShopeePage } from "./pages/ShopeePage";
 import { NotepadPage } from "./pages/NotepadPage";
 import { WhatsappPage } from "./pages/WhatsappPage";
+import { AboutPage } from "./pages/AboutPage";
 
 const GRUPOS = ["DIA A DIA", "PRODUÇÃO", "COMUNICAÇÃO"] as const;
 
@@ -41,6 +45,8 @@ export function ModuleIcon({ id, className = "w-4 h-4" }: { id: ModuloId; classN
       return <Scissors className={className} />;
     case "consumo":
       return <BarChart3 className={className} />;
+    case "shopee":
+      return <PackageCheck className={className} />;
     case "notepad":
       return <FileText className={className} />;
     case "whatsapp":
@@ -49,7 +55,7 @@ export function ModuleIcon({ id, className = "w-4 h-4" }: { id: ModuloId; classN
 }
 
 export default function App() {
-  const [atual, setAtual] = useState<ModuloId>("inicio");
+  const [atual, setAtual] = useState<ModuloId | "about">("inicio");
   const [dark, setDark] = useState<boolean>(() => {
     return localStorage.getItem("pcp-theme") === "dark";
   });
@@ -143,6 +149,19 @@ export default function App() {
         cortador: e.payload ? { text: "cortando…", cor: "amber" } : undefined,
       }));
     });
+    const unShopee = listen<{ monitorando: boolean; executando: boolean }>(
+      "shopee-status",
+      (e) => {
+        setStatusMap((prev) => ({
+          ...prev,
+          shopee: e.payload.executando
+            ? { text: "gerando…", cor: "amber" }
+            : e.payload.monitorando
+            ? { text: "observando", cor: "green" }
+            : undefined,
+        }));
+      }
+    );
 
     return () => {
       unNote.then((fn) => fn());
@@ -150,6 +169,7 @@ export default function App() {
       unTiff.then((fn) => fn());
       unBol.then((fn) => fn());
       unCort.then((fn) => fn());
+      unShopee.then((fn) => fn());
     };
   }, []);
 
@@ -279,19 +299,28 @@ export default function App() {
           })}
         </nav>
 
-        <div className="px-3 py-2.5 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
+        <div className="px-3 py-2.5 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between gap-1">
           <button
             onClick={() => setDark((d) => !d)}
             className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
             title="Alternar tema claro/escuro"
           >
             {dark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-500" />}
-            <span>{dark ? "Modo Claro" : "Modo Escuro"}</span>
+            <span>{dark ? "Claro" : "Escuro"}</span>
           </button>
 
-          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.05] text-slate-500 dark:text-zinc-400">
-            Ctrl+0..7
-          </span>
+          <button
+            onClick={() => setAtual("about")}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+              atual === "about"
+                ? "bg-blue-50 dark:bg-blue-600/15 text-blue-700 dark:text-white"
+                : "text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
+            }`}
+            title="Sobre o PCP Central"
+          >
+            <Info className="w-3.5 h-3.5" />
+            <span>About</span>
+          </button>
         </div>
       </aside>
 
@@ -303,8 +332,10 @@ export default function App() {
         {atual === "bolsinhas" && <BolsinhasPage />}
         {atual === "cortador" && <CortadorPage />}
         {atual === "consumo" && <ConsumoPage />}
+        {atual === "shopee" && <ShopeePage />}
         {atual === "notepad" && <NotepadPage />}
         {atual === "whatsapp" && <WhatsappPage />}
+        {atual === "about" && <AboutPage />}
       </main>
     </div>
   );
