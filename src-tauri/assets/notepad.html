@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notepad compartilhado</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #f4f4f4;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #222;
+    }
+    .wrap {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      gap: 10px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .status {
+      font-size: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #bbb;
+      background: #fff;
+    }
+    .status.connected {
+      color: #0a7a35;
+      border-color: #8fd3a7;
+      background: #edf9f1;
+    }
+    .status.disconnected {
+      color: #a33;
+      border-color: #e3aaaa;
+      background: #fff0f0;
+    }
+    .meta {
+      font-size: 13px;
+      color: #555;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .errorBanner {
+      display: none;
+      font-size: 13px;
+      color: #a33;
+      background: #fff0f0;
+      border: 1px solid #e3aaaa;
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+    .errorBanner.show { display: block; }
+    textarea {
+      flex: 1;
+      width: 100%;
+      resize: none;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 18px;
+      line-height: 1.5;
+      font-family: Consolas, Monaco, monospace;
+      background: #fff;
+      color: #111;
+      outline: none;
+    }
+    textarea:focus {
+      border-color: #666;
+    }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      color: #555;
+    }
+    button {
+      border: 1px solid #999;
+      background: #fff;
+      color: #111;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    button:hover {
+      background: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="title">Notepad compartilhado</div>
+      <div id="status" class="status disconnected">Desconectado</div>
+    </div>
+
+    <div class="meta">
+      <span id="meta">Última alteração: nenhuma</span>
+      <span id="clientsInfo"></span>
+    </div>
+
+    <div id="errorBanner" class="errorBanner"></div>
+
+    <textarea id="editor" placeholder="Digite aqui..."></textarea>
+
+    <div class="footer">
+      <div id="charCount">0 caracteres</div>
+      <button id="clearBtn" type="button">Limpar</button>
+    </div>
+  </div>
+
+  <script>
+    const WS_PORT = __WS_PORT__;
+    const statusEl = document.getElementById('status');
+    const metaEl = document.getElementById('meta');
+    const clientsInfoEl = document.getElementById('clientsInfo');
+    const errorBanner = document.getElementById('errorBanner');
+    const editor = document.getElementById('editor');
+    const charCount = document.getElementById('charCount');
+    const clearBtn = document.getElementById('clearBtn');
+
+    const clientId = 'pc-' + Math.random().toString(36).slice(2, 8);
+    const wsHost = window.location.hostname || 'localhost';
+    const wsUrl = `ws://${wsHost}:${WS_PORT}`;
+
+    let socket = null;
+    let suppressSend = false;
+    let debounceTimer = null;
+
+    function updateCount() {
+      charCount.textContent = `${editor.value.length} caracteres`;
+    }
+
+    function setStatus(text, connected) {
+      statusEl.textContent = text;
+      statusEl.className = 'status ' + (connected ? 'connected' : 'disconnected');
+    }
+
+    function formatTimestamp(iso) {
+      if (!iso) return null;
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleString('pt-BR');
+    }
+
+    function setMeta(author, updatedAt) {
+      const who = author || 'nenhuma';
+      const when = formatTimestamp(updatedAt);
+      metaEl.textContent = when
+        ? `Última alteração: ${who} às ${when}`
+        : `Última alteração: ${who}`;
+    }
+
+    function setClientsInfo(count) {
+      if (typeof count !== 'number') {
+        clientsInfoEl.textContent = '';
+        return;
+      }
+      clientsInfoEl.textContent = `${count} cliente(s) conectado(s)`;
+    }
+
+    function showError(message) {
+      errorBanner.textContent = message;
+      errorBanner.classList.add('show');
+      setTimeout(() => errorBanner.classList.remove('show'), 4000);
+    }
+
+    function applyIncomingText(text) {
+      suppressSend = true;
+      const cursorStart = editor.selectionStart;
+      const cursorEnd = editor.selectionEnd;
+      const hadFocus = document.activeElement === editor;
+      editor.value = text || '';
+      if (hadFocus) {
+        try {
+          editor.setSelectionRange(cursorStart, cursorEnd);
+        } catch (_) {}
+      }
+      suppressSend = false;
+      updateCount();
+    }
+
+    function connect() {
+      setStatus('Conectando...', false);
+      socket = new WebSocket(wsUrl);
+
+      socket.onopen = () => {
+        setStatus('WebSocket conectado', true);
+        socket.send(JSON.stringify({ type: 'get_state' }));
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+
+          if (data.type === 'state') {
+            applyIncomingText(data.text);
+            setMeta(data.author, data.updated_at);
+            setClientsInfo(data.clients);
+          }
+
+          if (data.type === 'error') {
+            showError(data.message || 'Erro desconhecido do servidor.');
+          }
+        } catch (e) {
+          console.error('Mensagem inválida:', e);
+        }
+      };
+
+      socket.onclose = () => {
+        setStatus('Desconectado - reconectando...', false);
+        setTimeout(connect, 1500);
+      };
+
+      socket.onerror = () => {
+        setStatus('Erro na conexão', false);
+      };
+    }
+
+    function sendUpdate() {
+      if (suppressSend) return;
+      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+
+      socket.send(JSON.stringify({
+        type: 'update',
+        text: editor.value,
+        author: clientId,
+      }));
+    }
+
+    editor.addEventListener('input', () => {
+      updateCount();
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(sendUpdate, 150);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      if (editor.value.length > 0 && !confirm('Limpar o texto para todo mundo?')) {
+        return;
+      }
+      editor.value = '';
+      updateCount();
+      sendUpdate();
+    });
+
+    updateCount();
+    connect();
+  </script>
+</body>
+</html>
