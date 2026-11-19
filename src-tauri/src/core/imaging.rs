@@ -3,7 +3,7 @@ use fast_image_resize as fr;
 use image::{DynamicImage, GrayImage, ImageFormat, Rgb, RgbImage, Rgba, RgbaImage};
 use imageproc::drawing::draw_text_mut;
 use std::fs::{self, File};
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::OnceLock;
 use std::thread;
@@ -237,47 +237,123 @@ pub fn save_image_with_meta(
 
     if ext == "tif" || ext == "tiff" {
         let rgb = img.to_rgb8();
-        let (w, h) = rgb.dimensions();
-        let file = File::create(output_path).map_err(|e| format!("Erro ao criar arquivo: {e}"))?;
-        let mut encoder = TiffEncoder::new(file)
-            .map_err(|e| format!("Erro ao iniciar encoder TIFF: {e}"))?;
-        let mut image_enc = encoder
-            .new_image_with_compression::<colortype::RGB8, _>(w, h, Lzw)
-            .map_err(|e| format!("Erro ao configurar TIFF LZW: {e}"))?;
-
-        let rx_num = (dpi_x * 1000.0).round() as u32;
-        let ry_num = (dpi_y * 1000.0).round() as u32;
-        image_enc
-            .encoder()
-            .write_tag(Tag::ResolutionUnit, 2u16)
-            .map_err(|e| format!("Erro tag ResolutionUnit: {e}"))?;
-        image_enc
-            .encoder()
-            .write_tag(Tag::XResolution, tiff::encoder::Rational { n: rx_num, d: 1000 })
-            .map_err(|e| format!("Erro tag XResolution: {e}"))?;
-        image_enc
-            .encoder()
-            .write_tag(Tag::YResolution, tiff::encoder::Rational { n: ry_num, d: 1000 })
-            .map_err(|e| format!("Erro tag YResolution: {e}"))?;
-
-        if let Some(icc) = icc_profile {
-            if !icc.is_empty() {
-                image_enc
-                    .encoder()
-                    .write_tag(Tag::Unknown(34675), icc)
-                    .map_err(|e| format!("Erro tag ICC: {e}"))?;
-            }
-        }
-
-        image_enc
-            .write_data(rgb.as_raw())
-            .map_err(|e| format!("Erro ao gravar dados TIFF: {e}"))?;
-        Ok(())
+        save_rgb_tiff(&rgb, output_path, dpi_x, dpi_y, icc_profile)
     } else {
         let fmt = ImageFormat::from_path(output_path).unwrap_or(ImageFormat::Png);
         img.save_with_format(output_path, fmt)
             .map_err(|e| format!("Erro ao salvar imagem: {e}"))
     }
+}
+
+/// Salva RgbImage diretamente como TIFF LZW com BufWriter de 1MB (ideal para rede Z:\).
+pub fn save_rgb_tiff(
+    rgb: &RgbImage,
+    output_path: &Path,
+    dpi_x: f64,
+    dpi_y: f64,
+    icc_profile: Option<&[u8]>,
+) -> Result<(), String> {
+    let (w, h) = rgb.dimensions();
+    let file = File::create(output_path).map_err(|e| format!("Erro ao criar arquivo: {e}"))?;
+    let writer = BufWriter::with_capacity(1024 * 1024, file);
+    let mut encoder = TiffEncoder::new(writer)
+        .map_err(|e| format!("Erro ao iniciar encoder TIFF: {e}"))?;
+    let mut image_enc = encoder
+        .new_image_with_compression::<colortype::RGB8, _>(w, h, Lzw)
+        .map_err(|e| format!("Erro ao configurar TIFF LZW: {e}"))?;
+
+    let rx_num = (dpi_x * 1000.0).round() as u32;
+    let ry_num = (dpi_y * 1000.0).round() as u32;
+    image_enc
+        .encoder()
+        .write_tag(Tag::ResolutionUnit, 2u16)
+        .map_err(|e| format!("Erro tag ResolutionUnit: {e}"))?;
+    image_enc
+        .encoder()
+        .write_tag(Tag::XResolution, tiff::encoder::Rational { n: rx_num, d: 1000 })
+        .map_err(|e| format!("Erro tag XResolution: {e}"))?;
+    image_enc
+        .encoder()
+        .write_tag(Tag::YResolution, tiff::encoder::Rational { n: ry_num, d: 1000 })
+        .map_err(|e| format!("Erro tag YResolution: {e}"))?;
+
+    if let Some(icc) = icc_profile {
+        if !icc.is_empty() {
+            image_enc
+                .encoder()
+                .write_tag(Tag::Unknown(34675), icc)
+                .map_err(|e| format!("Erro tag ICC: {e}"))?;
+        }
+    }
+
+    image_enc
+        .write_data(rgb.as_raw())
+        .map_err(|e| format!("Erro ao gravar dados TIFF: {e}"))?;
+    Ok(())
+}
+
+/// Copia uma sub-região `(sx, sy, cw, ch)` de `src` direto para `(dx, dy)` de `dst` via slice.
+pub fn blit_rgb_subrect_fast(
+    dst: &mut RgbImage,
+    src: &RgbImage,
+    sx: u32,
+    sy: u32,
+    cw: u32,
+    ch: u32,
+    dx: u32,
+    dy: u32,
+) {
+    let (dw, dh) = dst.dimensions();
+    let (sw, sh) = src.dimensions();
+    if sx >= sw || sy >= sh || dx >= dw || dy >= dh || cw == 0 || ch == 0 {
+        return;
+    }
+    let copy_w = cw.min(sw - sx).min(dw - dx) as usize;
+    let copy_h = ch.min(sh - sy).min(dh - dy) as usize;
+    let dst_stride = dw as usize * 3;
+    let src_stride = sw as usize * 3;
+    let row_bytes = copy_w * 3;
+
+    let dst_buf = dst.as_mut();
+    let src_buf = src.as_raw();
+
+    for y in 0..copy_h {
+        let d_off = (dy as usize + y) * dst_stride + (dx as usize) * 3;
+        let s_off = (sy as usize + y) * src_stride + (sx as usize) * 3;
+        dst_buf[d_off..d_off + row_bytes].copy_from_slice(&src_buf[s_off..s_off + row_bytes]);
+    }
+}
+
+/// Desenha texto com contorno (stroke) para contraste em fundos claros e escuros.
+#[allow(clippy::too_many_arguments)]
+pub fn draw_text_with_stroke_rgb(
+    img: &mut RgbImage,
+    font_bytes: Option<&[u8]>,
+    text: &str,
+    x: i32,
+    y: i32,
+    scale_px: f32,
+    color: Rgb<u8>,
+    stroke_color: Rgb<u8>,
+    stroke_width: i32,
+) {
+    let Some(bytes) = font_bytes else { return };
+    let Ok(font) = FontRef::try_from_slice(bytes) else {
+        return;
+    };
+    let scale = PxScale::from(scale_px.max(1.0));
+    let r2 = stroke_width * stroke_width;
+    for dy in -stroke_width..=stroke_width {
+        for dx in -stroke_width..=stroke_width {
+            if dx == 0 && dy == 0 {
+                continue;
+            }
+            if dx * dx + dy * dy <= r2 {
+                draw_text_mut(img, stroke_color, x + dx, y + dy, scale, &font, text);
+            }
+        }
+    }
+    draw_text_mut(img, color, x, y, scale, &font, text);
 }
 
 /// Cópia rápida linha-a-linha de `src` para `dst` na posição `(ox, oy)`.

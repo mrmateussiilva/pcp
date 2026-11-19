@@ -2,10 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { FolderOpen, Scissors } from "lucide-react";
+import { FilePlus2, FolderOpen, Scissors, X } from "lucide-react";
 import { PageHeader, StatusBadge, SurfaceCard, TerminalLog } from "../components/ui";
 
 const CORES = ["Preto", "Azul", "Rosa", "Roxo", "Vermelho", "Verde"];
+
+function basename(path: string): string {
+  const parts = path.split(/[\\/]/);
+  return parts[parts.length - 1] || path;
+}
 
 export function CortadorPage() {
   const [modo, setModo] = useState<"Automático" | "Medidas personalizadas">("Automático");
@@ -15,6 +20,9 @@ export function CortadorPage() {
   const [erro, setErro] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement | null>(null);
 
+  // Automático
+  const [aOrigem, setAOrigem] = useState<"pasta" | "arquivos">("pasta");
+  const [aArquivos, setAArquivos] = useState<string[]>([]);
   const [aPasta, setAPasta] = useState("");
   const [aGab, setAGab] = useState("");
   const [aSaida, setASaida] = useState("");
@@ -31,8 +39,13 @@ export function CortadorPage() {
   const [aCidadeLarg, setACidadeLarg] = useState("4.0");
   const [aCidadeAlt, setACidadeAlt] = useState("1.0");
   const [aCidadeMargem, setACidadeMargem] = useState("1.0");
-  const [overrides, setOverrides] = useState<Record<string, string>>({});
+  const [overridesTxt, setOverridesTxt] = useState(
+    "EU AMO LINHARES = LINHARES\nLINHARES 02 = LINHARES\nSOORETAMA - FAIXA = SOORETAMA"
+  );
 
+  // Medidas personalizadas
+  const [mOrigem, setMOrigem] = useState<"pasta" | "arquivos">("pasta");
+  const [mArquivos, setMArquivos] = useState<string[]>([]);
   const [mEntrada, setMEntrada] = useState("");
   const [mSaida, setMSaida] = useState("");
   const [mGab, setMGab] = useState("");
@@ -65,7 +78,10 @@ export function CortadorPage() {
       setACidadeLarg(String(a.cidade_largura ?? 4.0));
       setACidadeAlt(String(a.cidade_altura ?? 1.0));
       setACidadeMargem(String(a.cidade_margem ?? 1.0));
-      if (a.overrides) setOverrides(a.overrides);
+      if (a.overrides && typeof a.overrides === "object") {
+        const lines = Object.entries(a.overrides).map(([k, v]) => `${k} = ${v}`);
+        if (lines.length > 0) setOverridesTxt(lines.join("\n"));
+      }
 
       const m = cfg.medidas || {};
       setMEntrada(m.entrada || "");
@@ -119,14 +135,50 @@ export function CortadorPage() {
     if (typeof f === "string") setter(f);
   };
 
+  const adicionarArquivos = async (
+    defaultPath: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    const sel = await open({
+      multiple: true,
+      defaultPath: defaultPath || undefined,
+      filters: [{ name: "Imagens", extensions: ["tif", "tiff", "png", "jpg", "jpeg"] }],
+    });
+    if (!sel) return;
+    const novos = Array.isArray(sel) ? sel : [sel];
+    setter((prev) => {
+      const set = new Set(prev);
+      for (const n of novos) set.add(n);
+      return Array.from(set);
+    });
+  };
+
   const executar = async () => {
     setErro(null);
     setLogs([]);
     setProgresso(0);
 
     try {
+      const parsedOverrides: Record<string, string> = {};
+      for (const line of overridesTxt.split(/\r?\n/)) {
+        const idx = line.indexOf("=");
+        if (idx > 0) {
+          const k = line.slice(0, idx).trim();
+          const v = line.slice(idx + 1).trim();
+          if (k && v) parsedOverrides[k] = v;
+        }
+      }
+
+      if (modo === "Automático" && aOrigem === "arquivos" && aArquivos.length === 0) {
+        throw new Error("Selecione ao menos um arquivo para cortar.");
+      }
+      if (modo === "Medidas personalizadas" && mOrigem === "arquivos" && mArquivos.length === 0) {
+        throw new Error("Selecione ao menos um arquivo para cortar.");
+      }
+
       const autoCfg = {
         pasta: aPasta,
+        arquivos: aOrigem === "arquivos" ? aArquivos : undefined,
         gabarito: aGab,
         saida: aSaida,
         medida: num(aMedida, "Largura da placa"),
@@ -136,16 +188,17 @@ export function CortadorPage() {
         workers: Math.max(1, Math.round(num(aWorkers, "Painéis em paralelo"))),
         cor: aCor,
         inverter: aInverter,
-        mover: aMover,
+        mover: aOrigem === "arquivos" ? false : aMover,
         cidade: aCidade,
         cidade_cor: aCidadeCor,
         cidade_largura: num(aCidadeLarg, "Largura cidade"),
         cidade_altura: num(aCidadeAlt, "Altura cidade"),
         cidade_margem: num(aCidadeMargem, "Margem cidade"),
-        overrides,
+        overrides: parsedOverrides,
       };
       const medCfg = {
         entrada: mEntrada,
+        arquivos: mOrigem === "arquivos" ? mArquivos : undefined,
         saida: mSaida,
         gabarito: mGab,
         medidas: mMedidas,
@@ -157,7 +210,11 @@ export function CortadorPage() {
       };
 
       await invoke("cortador_save_config", {
-        data: { modo, auto: autoCfg, medidas: medCfg },
+        data: {
+          modo,
+          auto: { ...autoCfg, arquivos: undefined, mover: aMover },
+          medidas: { ...medCfg, arquivos: undefined },
+        },
       });
 
       if (modo === "Automático") {
@@ -184,7 +241,7 @@ export function CortadorPage() {
       <PageHeader
         icon={<Scissors className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
         title="Cortador de Painéis"
-        subtitle="Corta painéis em placas com gabarito, numeração de costura e nome no padding."
+        subtitle="Corte uma pasta inteira ou selecione arquivos específicos direto sem precisar movê-los."
         right={
           <StatusBadge
             active={rodando}
@@ -201,7 +258,7 @@ export function CortadorPage() {
         </div>
       )}
 
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[460px_1fr] gap-4">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[470px_1fr] gap-4">
         <SurfaceCard className="p-4 flex flex-col min-h-0">
           <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-[#0b0b12] p-1 rounded-xl border border-slate-200 dark:border-white/[0.06] mb-3">
             {(["Automático", "Medidas personalizadas"] as const).map((m) => (
@@ -222,12 +279,24 @@ export function CortadorPage() {
           <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-xs">
             {modo === "Automático" ? (
               <>
-                <CampoCaminho
-                  label="Pasta dos painéis"
-                  value={aPasta}
-                  onChange={setAPasta}
-                  onBrowse={() => escolherPasta(aPasta, setAPasta)}
-                />
+                <SeletorOrigem origem={aOrigem} onChange={setAOrigem} />
+
+                {aOrigem === "pasta" ? (
+                  <CampoCaminho
+                    label="Pasta dos painéis"
+                    value={aPasta}
+                    onChange={setAPasta}
+                    onBrowse={() => escolherPasta(aPasta, setAPasta)}
+                  />
+                ) : (
+                  <SeletorArquivos
+                    arquivos={aArquivos}
+                    onAdicionar={() => adicionarArquivos(aPasta, setAArquivos)}
+                    onRemover={(p) => setAArquivos((prev) => prev.filter((x) => x !== p))}
+                    onLimpar={() => setAArquivos([])}
+                  />
+                )}
+
                 <CampoCaminho
                   label="Gabarito"
                   value={aGab}
@@ -235,7 +304,11 @@ export function CortadorPage() {
                   onBrowse={() => escolherArquivo(setAGab)}
                 />
                 <CampoCaminho
-                  label="Saída (vazio = mesma)"
+                  label={
+                    aOrigem === "arquivos"
+                      ? "Saída (vazio = mesma pasta do arquivo)"
+                      : "Saída (vazio = mesma pasta dos painéis)"
+                  }
                   value={aSaida}
                   onChange={setASaida}
                   onBrowse={() => escolherPasta(aSaida, setASaida)}
@@ -270,14 +343,21 @@ export function CortadorPage() {
                     />
                     Inverter corte (180°)
                   </label>
-                  <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-200 cursor-pointer">
+                  <label
+                    className={`flex items-center gap-2 ${
+                      aOrigem === "arquivos"
+                        ? "text-slate-400 dark:text-zinc-500 cursor-not-allowed"
+                        : "text-slate-700 dark:text-zinc-200 cursor-pointer"
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={aMover}
+                      checked={aOrigem === "arquivos" ? false : aMover}
+                      disabled={aOrigem === "arquivos"}
                       onChange={(e) => setAMover(e.target.checked)}
                       className="rounded accent-blue-600"
                     />
-                    Mover originais para painel_original/
+                    Mover originais e placas um nível acima ao terminar
                   </label>
                   <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-200 cursor-pointer">
                     <input
@@ -286,34 +366,63 @@ export function CortadorPage() {
                       onChange={(e) => setACidade(e.target.checked)}
                       className="rounded accent-blue-600"
                     />
-                    Imprimir nome da cidade na última placa
+                    Escrever a cidade na última placa
                   </label>
                 </div>
 
                 {aCidade && (
-                  <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-200 dark:border-white/10">
-                    <CampoSelect
-                      label="Cor da cidade"
-                      value={aCidadeCor}
-                      onChange={setACidadeCor}
-                      options={CORES}
-                    />
-                    <CampoTexto label="Largura máx (cm)" value={aCidadeLarg} onChange={setACidadeLarg} />
-                    <CampoTexto label="Altura máx (cm)" value={aCidadeAlt} onChange={setACidadeAlt} />
-                    <CampoTexto label="Margem inf. (cm)" value={aCidadeMargem} onChange={setACidadeMargem} />
+                  <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-white/10">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <CampoSelect
+                        label="Cor da cidade"
+                        value={aCidadeCor}
+                        onChange={setACidadeCor}
+                        options={CORES}
+                      />
+                      <CampoTexto label="Largura máx (cm)" value={aCidadeLarg} onChange={setACidadeLarg} />
+                      <CampoTexto label="Altura máx (cm)" value={aCidadeAlt} onChange={setACidadeAlt} />
+                      <CampoTexto label="Margem borda (cm)" value={aCidadeMargem} onChange={setACidadeMargem} />
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 dark:text-zinc-400 mb-1">
+                        Correções de nome (ARQUIVO = TEXTO), uma por linha:
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={overridesTxt}
+                        onChange={(e) => setOverridesTxt(e.target.value)}
+                        className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-1.5 font-mono text-[11px] text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                      />
+                    </div>
                   </div>
                 )}
               </>
             ) : (
               <>
+                <SeletorOrigem origem={mOrigem} onChange={setMOrigem} />
+
+                {mOrigem === "pasta" ? (
+                  <CampoCaminho
+                    label="Pasta entrada"
+                    value={mEntrada}
+                    onChange={setMEntrada}
+                    onBrowse={() => escolherPasta(mEntrada, setMEntrada)}
+                  />
+                ) : (
+                  <SeletorArquivos
+                    arquivos={mArquivos}
+                    onAdicionar={() => adicionarArquivos(mEntrada, setMArquivos)}
+                    onRemover={(p) => setMArquivos((prev) => prev.filter((x) => x !== p))}
+                    onLimpar={() => setMArquivos([])}
+                  />
+                )}
+
                 <CampoCaminho
-                  label="Pasta entrada"
-                  value={mEntrada}
-                  onChange={setMEntrada}
-                  onBrowse={() => escolherPasta(mEntrada, setMEntrada)}
-                />
-                <CampoCaminho
-                  label="Pasta saída"
+                  label={
+                    mOrigem === "arquivos"
+                      ? "Saída (vazio = mesma pasta do arquivo)"
+                      : "Pasta saída"
+                  }
                   value={mSaida}
                   onChange={setMSaida}
                   onBrowse={() => escolherPasta(mSaida, setMSaida)}
@@ -388,6 +497,106 @@ export function CortadorPage() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+function SeletorOrigem({
+  origem,
+  onChange,
+}: {
+  origem: "pasta" | "arquivos";
+  onChange: (v: "pasta" | "arquivos") => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 pb-1">
+      <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">Origem</span>
+      <div className="inline-flex rounded-lg bg-slate-100 dark:bg-[#0b0b12] p-0.5 border border-slate-200 dark:border-white/10">
+        <button
+          type="button"
+          onClick={() => onChange("pasta")}
+          className={`px-2.5 py-1 rounded-md text-[11px] font-medium cursor-pointer transition-colors ${
+            origem === "pasta"
+              ? "bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs"
+              : "text-slate-500 dark:text-zinc-400"
+          }`}
+        >
+          Pasta inteira
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange("arquivos")}
+          className={`px-2.5 py-1 rounded-md text-[11px] font-medium cursor-pointer transition-colors ${
+            origem === "arquivos"
+              ? "bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs"
+              : "text-slate-500 dark:text-zinc-400"
+          }`}
+        >
+          Selecionar arquivos
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SeletorArquivos({
+  arquivos,
+  onAdicionar,
+  onRemover,
+  onLimpar,
+}: {
+  arquivos: string[];
+  onAdicionar: () => void;
+  onRemover: (p: string) => void;
+  onLimpar: () => void;
+}) {
+  return (
+    <div className="rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 p-2.5 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={onAdicionar}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold cursor-pointer"
+        >
+          <FilePlus2 className="w-3.5 h-3.5" />
+          Escolher arquivos ({arquivos.length})
+        </button>
+        {arquivos.length > 0 && (
+          <button
+            type="button"
+            onClick={onLimpar}
+            className="text-[11px] text-slate-500 hover:text-red-500 cursor-pointer"
+          >
+            Limpar
+          </button>
+        )}
+      </div>
+
+      {arquivos.length === 0 ? (
+        <div className="text-[11px] text-slate-400 dark:text-zinc-500 py-2 text-center">
+          Nenhum arquivo selecionado. Clique acima para escolher 1 ou mais painéis.
+        </div>
+      ) : (
+        <div className="max-h-28 overflow-y-auto space-y-1">
+          {arquivos.map((arq) => (
+            <div
+              key={arq}
+              className="flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-white dark:bg-white/[0.04] border border-slate-200/70 dark:border-white/[0.06]"
+            >
+              <span className="truncate font-mono text-[11px] text-slate-700 dark:text-zinc-200" title={arq}>
+                {basename(arq)}
+              </span>
+              <button
+                type="button"
+                onClick={() => onRemover(arq)}
+                className="text-slate-400 hover:text-red-500 cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
