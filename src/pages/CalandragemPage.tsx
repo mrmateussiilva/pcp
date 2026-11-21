@@ -38,8 +38,19 @@ export function CalandragemPage() {
     const un = listen<CalandragemStatus>("calandragem-status", (e) => {
       setStatus(e.payload);
     });
+
+    const observer = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains("dark");
+      const iframe = document.querySelector("iframe");
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({ type: "pcp-theme", dark: isDark }, "*");
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
     return () => {
       un.then((fn) => fn());
+      observer.disconnect();
     };
   }, []);
 
@@ -188,9 +199,13 @@ export function CalandragemPage() {
       </SurfaceCard>
 
       {status.rodando ? (
-        <div className="flex-1 min-h-0 rounded border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-2xs bg-white">
+        <div className="flex-1 min-h-0 rounded border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-2xs bg-white dark:bg-[#111114]">
           <iframe
-            src={`http://127.0.0.1:${status.porta}/`}
+            src={`http://127.0.0.1:${status.porta}/?embed=1${
+              typeof document !== "undefined" && document.documentElement.classList.contains("dark")
+                ? "&theme=dark"
+                : ""
+            }`}
             title="Painel de Calandragem"
             className="w-full h-full border-0"
           />
