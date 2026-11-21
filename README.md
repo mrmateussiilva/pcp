@@ -55,9 +55,11 @@ A tela inicial (Command Center) organiza os módulos em bancadas técnicas com c
 
 ## Destaques Técnicos & Performance Rust
 
-- **Design Industrial RIP / Workstation:**
+- **Design Industrial RIP / Workstation & Operação 100% Teclado:**
   - Alta densidade de informação com tipografia monoespaçada (`font-mono`, `tabular-nums`) para medidas, DPI, pixels e contadores.
-  - Barra inferior de telemetria em tempo real (drive base, portas HTTP/WS ativas, atalhos globais `Ctrl+0..7`).
+  - **Sidebar recolhível** (`Ctrl+B` ou botão no topo) com modo compacto de ícones (`54px`) + LEDs de status dos serviços e persistência no `localStorage`.
+  - **Paleta de Comandos (`Ctrl+K` / `Ctrl+P`)** com busca fuzzy para módulos, códigos técnicos e ações da tela ativa, além de **Mapa de Atalhos (`F1` / `Ctrl+/` / `?`)**.
+  - **Navegação & Tema pelo Teclado:** `Ctrl+0..9` (salto direto), `Ctrl+Tab` / `Alt+←/→` (abas), `Alt+T` / `Ctrl+Shift+L` (tema Claro/Escuro), `Ctrl+Enter` (ação principal da tela), `Ctrl+O` (pasta), `Ctrl+R` (atualizar/executar), `Ctrl+L` (limpar logs), `Ctrl+F` (filtro) e `Alt+1/2` (sub-abas).
   - **Modo Claro** de alto contraste como padrão, com alternância instantânea para **Modo Escuro** técnico.
 - **Engine de Imagem Ultra-Rápida (`core/imaging.rs`):**
   - **Zero-Copy & In-Place:** eliminação de clones intermediários de imagens de 300 DPI (~300–800 MB cada) usando `add_1px_black_border_inside_inplace` e `imageops::rotate180_in_place` (-65% de RAM).

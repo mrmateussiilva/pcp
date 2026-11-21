@@ -25,10 +25,14 @@ Este arquivo orienta agentes de IA que trabalham no repositório **`pcp-tauri/`*
 ```text
 pcp-tauri/
 ├── src/
-│   ├── components/ui.tsx       # Primitivas industriais (PageHeader, SurfaceCard, StatusBadge, StatCard, TerminalLog)
+│   ├── components/
+│   │   ├── ui.tsx              # Primitivas industriais (PageHeader, SurfaceCard, StatusBadge, StatCard, TerminalLog)
+│   │   ├── CommandPalette.tsx  # Paleta de comandos industrial (Ctrl+K / Ctrl+P)
+│   │   └── ShortcutsModal.tsx  # Mapa de atalhos globais e da tela ativa (F1 / Ctrl+/ / ?)
+│   ├── hooks/useShortcuts.tsx  # Contexto e hook usePageShortcuts para operação 100% teclado
 │   ├── modules/registry.ts     # Metadados, códigos técnicos (RIP-01, CUT-03...), bancadas e atalhos
 │   ├── pages/*.tsx             # Telas técnicas (uma por módulo + HomePage Command Center)
-│   └── App.tsx                 # Sidebar 224px, barra de telemetria, tema Claro/Escuro, atalhos Ctrl+0..7
+│   └── App.tsx                 # Sidebar recolhível (224px/54px, Ctrl+B), status bar, tema (Alt+T) e atalhos globais
 └── src-tauri/
     ├── assets/notepad.html     # HTML servido na rede pelo Notepad (__WS_PORT__ injetado em runtime)
     └── src/
@@ -59,6 +63,7 @@ pcp-tauri/
    - **Identificadores padronizados:** todo módulo deve possuir código técnico (`PRE-00`, `RIP-01`, `BAGS-02`, `CUT-03`, `LOG-04`, `CALC-05`, `CAL-06`, `NOTE-01`, `WPP-02`) e badge de modo (`WATCHER`, `BATCH`, `CALC`, `SERVICE`) registrados em `src/modules/registry.ts`.
    - **Modo Claro é o padrão** (`slate-50` / `white`), com suporte a **Modo Escuro** técnico via classes `dark:...` controladas por `.dark` no `<html>`.
    - Reaproveite sempre as primitivas de `src/components/ui.tsx` (`PageHeader`, `SurfaceCard`, `StatusBadge`, `StatCard`, `TerminalLog`).
+   - **Operação Keyboard-First obrigatória:** toda tela nova ou editada deve registrar suas ações principais via `usePageShortcuts` (`src/hooks/useShortcuts.tsx`) seguindo o padrão `Ctrl+Enter` (ação principal), `Ctrl+O` (selecionar pasta/arquivo), `Ctrl+R` (atualizar/executar), `Ctrl+L` (limpar logs), `Ctrl+F` (focar busca) e `Alt+1/2` (sub-abas). Mantenha todos os controles interativos navegáveis por `Tab` com `:focus-visible` nítido.
 7. **Portas configuráveis:** Serviços de rede (Notepad HTTP/WS e WhatsApp Webhook) devem sempre ler/salvar suas portas em `config.json`.
 8. **Referência legada:** A pasta irmã `../hub/` (Python) é apenas referência histórica — **não a altere** salvo pedido explícito.
 
