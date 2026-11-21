@@ -180,41 +180,43 @@ export function CortadorPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-4 max-w-7xl mx-auto">
+    <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">
       <PageHeader
-        icon={<Scissors className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
-        title="Cortador de Painéis"
-        subtitle="Corta painéis em placas com gabarito, numeração de costura e nome no padding."
+        icon={<Scissors className="w-4 h-4 text-slate-700 dark:text-zinc-300" />}
+        title="Cortador de Painéis // Fatiamento Industrial"
+        badge="CUT-03"
+        subtitle="Corta painéis em placas com gabarito de costura, numeração automática e rótulo de cidade no padding."
         right={
           <StatusBadge
             active={rodando}
-            activeText="Cortando..."
-            idleText="Pronto"
+            activeText="CORTANDO..."
+            idleText="PRONTO"
             tone="amber"
           />
         }
       />
 
       {erro && (
-        <div className="px-4 py-2.5 rounded-xl text-xs bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300">
-          {erro}
+        <div className="px-3.5 py-2 rounded text-xs font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-400">
+          ERRO // {erro}
         </div>
       )}
 
-      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[460px_1fr] gap-4">
-        <SurfaceCard className="p-4 flex flex-col min-h-0">
-          <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-[#0b0b12] p-1 rounded-xl border border-slate-200 dark:border-white/[0.06] mb-3">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[450px_1fr] gap-3.5">
+        <SurfaceCard className="p-3.5 flex flex-col min-h-0">
+          {/* Seletor de Modo */}
+          <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-zinc-900 p-0.5 rounded border border-slate-200 dark:border-zinc-800 mb-3">
             {(["Automático", "Medidas personalizadas"] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setModo(m)}
-                className={`py-2 rounded-lg text-xs font-semibold cursor-pointer transition-colors ${
+                className={`py-1.5 rounded text-xs font-mono font-medium cursor-pointer transition-colors ${
                   modo === m
-                    ? "bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs"
+                    ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-bold shadow-2xs"
                     : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
-                {m}
+                {m.toUpperCase()}
               </button>
             ))}
           </div>
@@ -223,168 +225,176 @@ export function CortadorPage() {
             {modo === "Automático" ? (
               <>
                 <CampoCaminho
-                  label="Pasta dos painéis"
+                  label="PASTA DOS PAINÉIS"
                   value={aPasta}
                   onChange={setAPasta}
                   onBrowse={() => escolherPasta(aPasta, setAPasta)}
                 />
                 <CampoCaminho
-                  label="Gabarito"
+                  label="ARQUIVO DE GABARITO (RGBA)"
                   value={aGab}
                   onChange={setAGab}
                   onBrowse={() => escolherArquivo(setAGab)}
                 />
                 <CampoCaminho
-                  label="Saída (vazio = mesma)"
+                  label="DIRETÓRIO DE SAÍDA (VAZIO = MESMO)"
                   value={aSaida}
                   onChange={setASaida}
                   onBrowse={() => escolherPasta(aSaida, setASaida)}
                 />
 
-                <div className="grid grid-cols-2 gap-2.5 pt-2">
-                  <CampoTexto label="Largura da placa (cm)" value={aMedida} onChange={setAMedida} />
-                  <CampoTexto label="Sobreposição (cm)" value={aSobra} onChange={setASobra} />
-                  <CampoTexto label="Padding (cm)" value={aPad} onChange={setAPad} />
-                  <CampoTexto label="Painéis em paralelo" value={aWorkers} onChange={setAWorkers} />
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                  <CampoTexto label="LARGURA PLACA" value={aMedida} onChange={setAMedida} unit="cm" />
+                  <CampoTexto label="SOBREPOSIÇÃO" value={aSobra} onChange={setASobra} unit="cm" />
+                  <CampoTexto label="PADDING" value={aPad} onChange={setAPad} unit="cm" />
+                  <CampoTexto label="THREADS RAYON" value={aWorkers} onChange={setAWorkers} unit="th" />
                   <CampoSelect
-                    label="Tipo de corte"
+                    label="ORIENTAÇÃO"
                     value={aTipo}
                     onChange={setATipo}
                     options={["horizontal", "vertical"]}
                   />
                   <CampoSelect
-                    label="Cor do texto"
+                    label="COR DO TEXTO"
                     value={aCor}
                     onChange={setACor}
                     options={["Automática (uma por painel)", ...CORES]}
                   />
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-200 cursor-pointer">
+                <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800 font-mono text-[11px]">
+                  <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-300 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={aInverter}
                       onChange={(e) => setAInverter(e.target.checked)}
                       className="rounded accent-blue-600"
                     />
-                    Inverter corte (180°)
+                    <span>Inverter corte (180°)</span>
                   </label>
-                  <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-200 cursor-pointer">
+                  <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-300 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={aMover}
                       onChange={(e) => setAMover(e.target.checked)}
                       className="rounded accent-blue-600"
                     />
-                    Mover originais para painel_original/
+                    <span>Mover originais para painel_original/</span>
                   </label>
-                  <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-200 cursor-pointer">
+                  <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-300 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={aCidade}
                       onChange={(e) => setACidade(e.target.checked)}
                       className="rounded accent-blue-600"
                     />
-                    Imprimir nome da cidade na última placa
+                    <span>Imprimir rótulo de cidade na última placa</span>
                   </label>
                 </div>
 
                 {aCidade && (
-                  <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-200 dark:border-white/10">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
                     <CampoSelect
-                      label="Cor da cidade"
+                      label="COR CIDADE"
                       value={aCidadeCor}
                       onChange={setACidadeCor}
                       options={CORES}
                     />
-                    <CampoTexto label="Largura máx (cm)" value={aCidadeLarg} onChange={setACidadeLarg} />
-                    <CampoTexto label="Altura máx (cm)" value={aCidadeAlt} onChange={setACidadeAlt} />
-                    <CampoTexto label="Margem inf. (cm)" value={aCidadeMargem} onChange={setACidadeMargem} />
+                    <CampoTexto label="LARGURA MÁX" value={aCidadeLarg} onChange={setACidadeLarg} unit="cm" />
+                    <CampoTexto label="ALTURA MÁX" value={aCidadeAlt} onChange={setACidadeAlt} unit="cm" />
+                    <CampoTexto label="MARGEM INF" value={aCidadeMargem} onChange={setACidadeMargem} unit="cm" />
                   </div>
                 )}
               </>
             ) : (
               <>
                 <CampoCaminho
-                  label="Pasta entrada"
+                  label="PASTA ENTRADA"
                   value={mEntrada}
                   onChange={setMEntrada}
                   onBrowse={() => escolherPasta(mEntrada, setMEntrada)}
                 />
                 <CampoCaminho
-                  label="Pasta saída"
+                  label="PASTA SAÍDA"
                   value={mSaida}
                   onChange={setMSaida}
                   onBrowse={() => escolherPasta(mSaida, setMSaida)}
                 />
                 <CampoCaminho
-                  label="Gabarito"
+                  label="GABARITO"
                   value={mGab}
                   onChange={setMGab}
                   onBrowse={() => escolherArquivo(setMGab)}
                 />
 
-                <div className="pt-2">
+                <div className="pt-2 border-t border-slate-100 dark:border-zinc-800">
                   <CampoTexto
-                    label="Medidas das placas (cm, separadas por vírgula)"
+                    label="MEDIDAS DAS PLACAS (SEPARADAS POR VÍRGULA)"
                     value={mMedidas}
                     onChange={setMMedidas}
+                    unit="cm"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 pt-1">
-                  <CampoTexto label="Sobreposição (cm)" value={mSobra} onChange={setMSobra} />
-                  <CampoTexto label="Padding (cm)" value={mPad} onChange={setMPad} />
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                  <CampoTexto label="SOBREPOSIÇÃO" value={mSobra} onChange={setMSobra} unit="cm" />
+                  <CampoTexto label="PADDING" value={mPad} onChange={setMPad} unit="cm" />
                   <CampoSelect
-                    label="Tipo de corte"
+                    label="ORIENTAÇÃO"
                     value={mTipo}
                     onChange={setMTipo}
                     options={["vertical", "horizontal"]}
                   />
                   <CampoSelect
-                    label="Cor do texto"
+                    label="COR DO TEXTO"
                     value={mCor}
                     onChange={setMCor}
                     options={CORES}
                   />
                 </div>
 
-                <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-200 pt-2 cursor-pointer">
+                <label className="flex items-center gap-2 text-slate-700 dark:text-zinc-300 pt-2 cursor-pointer font-mono text-[11px]">
                   <input
                     type="checkbox"
                     checked={mInverter}
                     onChange={(e) => setMInverter(e.target.checked)}
                     className="rounded accent-blue-600"
                   />
-                  Inverter corte (180°)
+                  <span>Inverter corte (180°)</span>
                 </label>
               </>
             )}
           </div>
         </SurfaceCard>
 
-        <div className="flex flex-col gap-3 min-h-0">
-          <button
-            onClick={executar}
-            disabled={rodando}
-            className="flex items-center justify-center gap-2 h-12 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 disabled:opacity-50 text-white text-sm font-bold tracking-wide cursor-pointer shadow-sm transition-all"
-          >
-            <Scissors className="w-4 h-4" />
-            {rodando ? "CORTANDO..." : "CORTAR PAINÉIS"}
-          </button>
+        {/* Console de Saída e Execução */}
+        <div className="flex flex-col gap-2.5 min-h-0">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={executar}
+              disabled={rodando}
+              className="flex-1 flex items-center justify-center gap-2 h-10 rounded border border-emerald-600 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-mono text-xs font-bold tracking-wider cursor-pointer shadow-2xs transition-all uppercase"
+            >
+              <Scissors className="w-3.5 h-3.5" />
+              <span>{rodando ? "PROCESSANDO CORTE..." : "EXECUTAR CORTE DE PAINÉIS"}</span>
+            </button>
+            <div className="font-mono text-xs font-semibold px-3 py-2 rounded border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#111115] tabular-nums">
+              {progresso.toFixed(0)}%
+            </div>
+          </div>
 
-          <div className="h-2.5 rounded-full bg-slate-200 dark:bg-[#0b0b12] overflow-hidden border border-slate-200 dark:border-white/[0.06]">
+          <div className="h-1.5 rounded-xs bg-slate-200 dark:bg-zinc-800 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-300"
+              className="h-full bg-emerald-600 dark:bg-emerald-500 transition-all duration-200"
               style={{ width: `${progresso}%` }}
             />
           </div>
 
           <TerminalLog
             lines={logs}
-            emptyText="Configure os parâmetros ao lado e clique em CORTAR PAINÉIS."
+            emptyText="Aguardando comando de corte..."
             logRef={logRef}
+            onClear={() => setLogs([])}
           />
         </div>
       </div>
@@ -405,19 +415,19 @@ function CampoCaminho({
 }) {
   return (
     <div>
-      <label className="block text-slate-500 dark:text-zinc-400 mb-1">{label}</label>
+      <label className="block font-mono text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">{label}</label>
       <div className="flex gap-1.5">
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="flex-1 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+          className="flex-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
         />
         <button
           onClick={onBrowse}
-          className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 text-slate-700 dark:text-zinc-200 cursor-pointer"
+          className="px-2.5 py-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 cursor-pointer"
         >
-          <FolderOpen className="w-3.5 h-3.5" />
+          <FolderOpen className="w-3 h-3" />
         </button>
       </div>
     </div>
@@ -428,20 +438,29 @@ function CampoTexto({
   label,
   value,
   onChange,
+  unit,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  unit?: string;
 }) {
   return (
     <div>
-      <label className="block text-slate-500 dark:text-zinc-400 mb-1">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-      />
+      <label className="block font-mono text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">{label}</label>
+      <div className="relative flex items-center">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+        />
+        {unit && (
+          <span className="absolute right-2 font-mono text-[10px] text-slate-400 dark:text-zinc-500 pointer-events-none">
+            {unit}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -459,14 +478,14 @@ function CampoSelect({
 }) {
   return (
     <div>
-      <label className="block text-slate-500 dark:text-zinc-400 mb-1">{label}</label>
+      <label className="block font-mono text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">{label}</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+        className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
       >
         {options.map((o) => (
-          <option key={o} value={o} className="bg-white dark:bg-[#151521]">
+          <option key={o} value={o} className="bg-white dark:bg-[#111115]">
             {o}
           </option>
         ))}

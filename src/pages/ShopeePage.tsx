@@ -122,173 +122,192 @@ export function ShopeePage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-4 max-w-7xl mx-auto">
+    <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">
       <PageHeader
-        icon={<PackageCheck className="w-5 h-5 text-orange-500 dark:text-orange-400" />}
-        title="Fichas Shopee"
-        subtitle="Pareia PDFs da Shopee com fotos do WhatsApp por horário, monta na Declaração de Conteúdo e salva em PRONTOS/."
+        icon={<PackageCheck className="w-4 h-4 text-slate-700 dark:text-zinc-300" />}
+        title="Fichas Shopee // Pareamento e Renderização"
+        badge="DOC-05"
+        subtitle="Pareia PDFs com fotos do WhatsApp por carimbo de horário, renderiza na Declaração de Conteúdo e gera PRONTOS/."
         right={
           <StatusBadge
             active={status.monitorando || status.executando}
-            activeText={status.executando ? "Gerando..." : "Observando"}
+            activeText={status.executando ? "RENDERIZANDO..." : "OBSERVANDO"}
             tone={status.executando ? "amber" : "emerald"}
           />
         }
       />
 
       {erro && (
-        <div className="px-4 py-2.5 rounded-xl text-xs bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300">
-          {erro}
+        <div className="px-3.5 py-2 rounded text-xs font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-400">
+          ERRO // {erro}
         </div>
       )}
 
-      <SurfaceCard className="p-4 space-y-3">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs text-slate-500 dark:text-zinc-400 w-28 shrink-0">
-            Pasta das fichas
+      {/* Parâmetros do Scanner */}
+      <SurfaceCard className="p-3.5 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-zinc-400 w-28 shrink-0">
+            DIRETÓRIO:
           </span>
           <input
             type="text"
             value={pasta}
             disabled={status.monitorando}
             onChange={(e) => setPasta(e.target.value)}
-            className="flex-1 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white disabled:opacity-50 focus:outline-none focus:border-blue-500"
+            className="flex-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1.5 font-mono text-xs text-slate-800 dark:text-zinc-200 disabled:opacity-50"
           />
           <button
             onClick={selecionarPasta}
             disabled={status.monitorando}
-            className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-50 text-slate-700 dark:text-zinc-200 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-xs font-medium text-slate-700 dark:text-zinc-300 cursor-pointer"
           >
-            <FolderOpen className="w-4 h-4" />
+            <FolderOpen className="w-3.5 h-3.5" />
+            <span>SELECIONAR</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-xs font-mono pt-1">
           <div>
-            <label className="block text-slate-500 dark:text-zinc-400 mb-1">Tolerância (min)</label>
-            <input
-              type="text"
-              value={tolerancia}
-              disabled={status.monitorando}
-              onChange={(e) => setTolerancia(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-slate-900 dark:text-white"
-            />
+            <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">TOLERÂNCIA</label>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={tolerancia}
+                disabled={status.monitorando}
+                onChange={(e) => setTolerancia(e.target.value)}
+                className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white"
+              />
+              <span className="absolute right-2 text-[10px] text-slate-400">min</span>
+            </div>
           </div>
           <div>
-            <label className="block text-slate-500 dark:text-zinc-400 mb-1">Página PDF</label>
+            <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">PÁGINA PDF</label>
             <input
               type="text"
               value={pagina}
               disabled={status.monitorando}
               onChange={(e) => setPagina(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-slate-900 dark:text-white"
+              className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white"
             />
           </div>
           <div>
-            <label className="block text-slate-500 dark:text-zinc-400 mb-1">DPI JPEG</label>
-            <input
-              type="text"
-              value={dpi}
-              disabled={status.monitorando}
-              onChange={(e) => setDpi(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-slate-900 dark:text-white"
-            />
+            <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">RESOLUÇÃO</label>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={dpi}
+                disabled={status.monitorando}
+                onChange={(e) => setDpi(e.target.value)}
+                className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white"
+              />
+              <span className="absolute right-2 text-[10px] text-slate-400">DPI</span>
+            </div>
           </div>
           <div>
-            <label className="block text-slate-500 dark:text-zinc-400 mb-1">Margem (pt)</label>
-            <input
-              type="text"
-              value={margem}
-              disabled={status.monitorando}
-              onChange={(e) => setMargem(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-slate-900 dark:text-white"
-            />
+            <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">MARGEM</label>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={margem}
+                disabled={status.monitorando}
+                onChange={(e) => setMargem(e.target.value)}
+                className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white"
+              />
+              <span className="absolute right-2 text-[10px] text-slate-400">pt</span>
+            </div>
           </div>
           <div>
-            <label className="block text-slate-500 dark:text-zinc-400 mb-1">Espaço (pt)</label>
-            <input
-              type="text"
-              value={espaco}
-              disabled={status.monitorando}
-              onChange={(e) => setEspaco(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-slate-900 dark:text-white"
-            />
+            <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">ESPAÇO</label>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={espaco}
+                disabled={status.monitorando}
+                onChange={(e) => setEspaco(e.target.value)}
+                className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white"
+              />
+              <span className="absolute right-2 text-[10px] text-slate-400">pt</span>
+            </div>
           </div>
           <div>
-            <label className="block text-slate-500 dark:text-zinc-400 mb-1">Layout</label>
+            <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">LAYOUT</label>
             <select
               value={layout}
               disabled={status.monitorando}
               onChange={(e) =>
                 setLayout(e.target.value === "lado_a_lado" ? "lado_a_lado" : "empilhado")
               }
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-slate-900 dark:text-white"
+              className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white"
             >
-              <option value="empilhado" className="bg-white dark:bg-[#151521]">
-                Empilhado
+              <option value="empilhado" className="bg-white dark:bg-[#111115]">
+                EMPILHADO
               </option>
-              <option value="lado_a_lado" className="bg-white dark:bg-[#151521]">
-                Lado a lado
+              <option value="lado_a_lado" className="bg-white dark:bg-[#111115]">
+                LADO A LADO
               </option>
             </select>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 pt-1">
-          <button
-            onClick={alternarMonitor}
-            disabled={status.executando}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer transition-all ${
-              status.monitorando
-                ? "bg-red-600 hover:bg-red-500 shadow-sm"
-                : "bg-emerald-600 hover:bg-emerald-500 shadow-sm"
-            }`}
-          >
-            {status.monitorando ? (
-              <Square className="w-3.5 h-3.5" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-            {status.monitorando ? "Parar Monitor" : "Observar Pasta"}
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-zinc-800">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={alternarMonitor}
+              disabled={status.executando}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded text-xs font-semibold text-white cursor-pointer transition-all ${
+                status.monitorando
+                  ? "bg-red-600 hover:bg-red-500 shadow-2xs"
+                  : "bg-emerald-600 hover:bg-emerald-500 shadow-2xs"
+              }`}
+            >
+              {status.monitorando ? (
+                <Square className="w-3.5 h-3.5" />
+              ) : (
+                <Play className="w-3.5 h-3.5" />
+              )}
+              <span>{status.monitorando ? "PARAR MONITOR" : "OBSERVAR PASTA"}</span>
+            </button>
 
-          <button
-            onClick={executarUmaVez}
-            disabled={status.monitorando || status.executando}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-semibold cursor-pointer shadow-sm"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            Executar uma vez
-          </button>
+            <button
+              onClick={executarUmaVez}
+              disabled={status.monitorando || status.executando}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-xs font-mono font-medium text-slate-700 dark:text-zinc-300 cursor-pointer"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>EXECUTAR LOTE UMA VEZ</span>
+            </button>
+          </div>
 
-          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-200 cursor-pointer ml-2">
+          <label className="flex items-center gap-2 text-xs font-mono text-slate-700 dark:text-zinc-300 cursor-pointer">
             <input
               type="checkbox"
               checked={refazer}
               disabled={status.monitorando}
               onChange={(e) => setRefazer(e.target.checked)}
-              className="rounded accent-orange-600"
+              className="rounded accent-blue-600"
             />
             <span className="inline-flex items-center gap-1">
               <RefreshCw className="w-3 h-3 text-slate-400" />
-              Gerar todas novamente (zerar registro)
+              Zerar cache de fichas geradas
             </span>
           </label>
         </div>
       </SurfaceCard>
 
+      {/* Telemetria */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-        <StatCard label="✔ Geradas" value={counters.geradas} tone="emerald" />
-        <StatCard label="↻ Refeitas" value={counters.refeitas} tone="sky" />
-        <StatCard label="⚠ Sem imagem" value={counters.sem_imagem} tone="amber" />
-        <StatCard label="🖼 Sobrando" value={counters.sobrando} tone="zinc" />
-        <StatCard label="✘ Erros" value={counters.erros} tone="red" />
+        <StatCard label="GERADAS" value={counters.geradas} tone="emerald" />
+        <StatCard label="REFEITAS" value={counters.refeitas} tone="sky" />
+        <StatCard label="SEM IMAGEM" value={counters.sem_imagem} tone="amber" />
+        <StatCard label="FOTOS SOBRANDO" value={counters.sobrando} tone="zinc" />
+        <StatCard label="FALHAS" value={counters.erros} tone="red" />
       </div>
 
       <TerminalLog
         lines={logs}
-        emptyText="Selecione a pasta com os PDFs e fotos da Shopee e clique em Observar ou Executar uma vez."
+        emptyText="Aguardando arquivos Shopee..."
         logRef={logRef}
+        onClear={() => setLogs([])}
       />
     </div>
   );

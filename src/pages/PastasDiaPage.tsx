@@ -148,67 +148,67 @@ export function PastasDiaPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-4 max-w-7xl mx-auto">
+    <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">
       <PageHeader
-        icon={<FolderTree className="w-5 h-5 text-amber-500 dark:text-amber-400" />}
-        title="Pastas do Dia"
-        subtitle="Cria a estrutura do dia no drive. As outras abas já abrem apontando para estas pastas."
+        icon={<FolderTree className="w-4 h-4 text-slate-700 dark:text-zinc-300" />}
+        title="Estruturação de Diretórios // Pastas do Dia"
+        badge="DIR-01"
+        subtitle="Cria a árvore de produção diária (Bolsinhas, Painéis, Conf, Aps, Totens) no drive mapeado."
       />
 
       {mensagem && (
         <div
-          className={`px-4 py-2.5 rounded-xl text-xs font-medium border ${mensagem.tipo === "ok"
-              ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
-              : "bg-red-50 dark:bg-red-500/10 border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300"
-            }`}
+          className={`px-3.5 py-2 rounded text-xs font-mono border ${
+            mensagem.tipo === "ok"
+              ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-900/60 text-emerald-700 dark:text-emerald-400"
+              : "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-400"
+          }`}
         >
+          {mensagem.tipo === "ok" ? "SUCESSO // " : "FALHA // "}
           {mensagem.texto}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1 min-h-0">
-        <SurfaceCard className="p-5 flex flex-col min-h-0">
-          <div className="flex items-center gap-2 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5 flex-1 min-h-0">
+        {/* Painel de Data e Status de Diretórios */}
+        <SurfaceCard className="p-4 flex flex-col min-h-0">
+          <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100 dark:border-zinc-800">
             <button
               onClick={() => mudarDia(-1)}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-200 cursor-pointer transition-colors"
+              className="p-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 cursor-pointer"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <div className="text-lg font-bold text-slate-900 dark:text-white min-w-40 text-center tabular-nums">
+            <div className="font-mono text-base font-bold text-slate-900 dark:text-white min-w-36 text-center tabular-nums">
               {formatarBr(dia)}
             </div>
             <button
               onClick={() => mudarDia(1)}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-white/[0.06] hover:bg-slate-200 dark:hover:bg-white/10 text-slate-700 dark:text-zinc-200 cursor-pointer transition-colors"
+              className="p-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-200 cursor-pointer"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
             <button
               onClick={() => setDia(new Date())}
-              className="ml-auto px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 text-xs font-medium text-slate-700 dark:text-white cursor-pointer transition-colors"
+              className="ml-auto px-2.5 py-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-xs font-mono font-medium text-slate-700 dark:text-zinc-300 cursor-pointer"
             >
-              Hoje
+              HOJE
             </button>
           </div>
 
-          <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 mb-2">
-            Destinos do dia:
-          </span>
-
-          <div className="flex-1 overflow-y-auto rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/[0.06] p-3.5 font-mono text-xs space-y-2 select-text">
+          <div className="flex-1 overflow-y-auto rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-3 font-mono text-xs space-y-2 select-text">
             {lista.map((item) => (
-              <div key={item.caminho} className="flex items-center gap-2.5">
+              <div key={item.caminho} className="flex items-center gap-2">
                 {item.existe ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 ) : (
-                  <CircleDashed className="w-4 h-4 text-slate-400 dark:text-zinc-600 shrink-0" />
+                  <CircleDashed className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-600 shrink-0" />
                 )}
                 <span
                   className={
                     item.existe
-                      ? "text-emerald-700 dark:text-emerald-300"
-                      : "text-slate-700 dark:text-zinc-300"
+                      ? "text-emerald-700 dark:text-emerald-300 font-medium"
+                      : "text-slate-600 dark:text-zinc-400"
                   }
                 >
                   {item.caminho}
@@ -217,104 +217,105 @@ export function PastasDiaPage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-3 mt-4 pt-2">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <button
               onClick={criarPastas}
               disabled={criando}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold cursor-pointer shadow-sm transition-all"
+              className="flex items-center gap-2 px-4 py-1.5 rounded border border-emerald-600 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white font-mono text-xs font-bold cursor-pointer shadow-2xs uppercase"
             >
-              <FolderPlus className="w-4 h-4" />
-              {criando ? "Criando..." : "Criar pastas"}
+              <FolderPlus className="w-3.5 h-3.5" />
+              <span>{criando ? "CRIANDO..." : "CRIAR PASTAS DO DIA"}</span>
             </button>
             <button
               onClick={() => atualizarLista(dia)}
               disabled={carregando}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 text-slate-700 dark:text-white text-xs font-medium cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 font-mono text-xs cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} />
-              Atualizar
+              <span>VERIFICAR</span>
             </button>
           </div>
         </SurfaceCard>
 
-        <SurfaceCard className="p-5 flex flex-col gap-3.5">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Configuração</h2>
+        {/* Configuração de Base e Subdiretórios */}
+        <SurfaceCard className="p-4 flex flex-col gap-3">
+          <div className="font-mono text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+            CONFIGURAÇÃO DE ESTRUTURAÇÃO
+          </div>
 
           <div>
-            <label className="block text-xs text-slate-500 dark:text-zinc-400 mb-1.5">
-              Drive / pasta base
+            <label className="block font-mono text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+              DRIVE BASE / RAIZ
             </label>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <input
                 type="text"
                 value={base}
                 onChange={(e) => setBase(e.target.value)}
-                className="flex-1 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+                className="flex-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
               />
               <button
                 onClick={selecionarBase}
-                className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 text-slate-700 dark:text-zinc-200 cursor-pointer"
+                className="px-2.5 py-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 cursor-pointer"
               >
-                <FolderOpen className="w-4 h-4" />
+                <FolderOpen className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs text-slate-500 dark:text-zinc-400 mb-1.5">
-              Pasta de totens
+            <label className="block font-mono text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+              DIRETÓRIO DE TOTENS
             </label>
             <input
               type="text"
               value={totens}
               onChange={(e) => setTotens(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+              className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs text-slate-500 dark:text-zinc-400 mb-1.5">
-              Subpastas do dia (uma por linha, use / para subníveis)
+            <label className="block font-mono text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+              SUBPASTAS PADRÃO (UMA POR LINHA)
             </label>
             <textarea
-              rows={5}
+              rows={4}
               value={subpastasTxt}
               onChange={(e) => setSubpastasTxt(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+              className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
             />
           </div>
 
           <div>
-            <label className="block text-xs text-slate-500 dark:text-zinc-400 mb-1.5">
-              Subpastas de totens (uma por linha)
+            <label className="block font-mono text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+              SUBPASTAS DE TOTENS
             </label>
             <textarea
               rows={2}
               value={totensTxt}
               onChange={(e) => setTotensTxt(e.target.value)}
-              className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+              className="w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
             />
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-200 cursor-pointer">
+          <label className="flex items-center gap-2 text-xs font-mono text-slate-700 dark:text-zinc-300 cursor-pointer">
             <input
               type="checkbox"
               checked={criarAoAbrir}
               onChange={(e) => setCriarAoAbrir(e.target.checked)}
               className="rounded accent-blue-600"
             />
-            Criar automaticamente ao abrir o PCP Central
+            <span>Criar automaticamente ao inicializar o PCP Central</span>
           </label>
 
-          <div className="pt-1">
-            <button
-              onClick={salvarConfig}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold cursor-pointer shadow-sm transition-all"
-            >
-              <Save className="w-4 h-4" />
-              Salvar configuração
-            </button>
-          </div>
+          <button
+            onClick={salvarConfig}
+            className="flex items-center justify-center gap-2 px-4 py-1.5 rounded border border-blue-600 bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs font-semibold cursor-pointer shadow-2xs uppercase mt-auto"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>SALVAR CONFIGURAÇÃO</span>
+          </button>
         </SurfaceCard>
       </div>
     </div>

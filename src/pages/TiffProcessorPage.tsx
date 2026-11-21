@@ -104,117 +104,130 @@ export function TiffProcessorPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-4 max-w-7xl mx-auto">
+    <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">
       <PageHeader
-        icon={<Printer className="w-5 h-5 text-sky-500 dark:text-sky-400" />}
-        title="TIFF Processor"
-        subtitle="Monitora pasta: rotação 90°, contorno 1px, padding 1cm, nome do cliente e log global."
-        right={<StatusBadge active={monitorando} activeText="Monitorando" />}
+        icon={<Printer className="w-4 h-4 text-slate-700 dark:text-zinc-300" />}
+        title="TIFF Processor // RIP de Entrada"
+        badge="RIP-01"
+        subtitle="Monitora pasta: rotação 90° se ~155cm, contorno 1px, padding inferior 1cm e preservação de DPI/ICC."
+        right={<StatusBadge active={monitorando} activeText="WATCHER ATIVO" idleText="PARADO" />}
       />
 
       {erro && (
-        <div className="px-4 py-2.5 rounded-xl text-xs bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300">
-          {erro}
+        <div className="px-3.5 py-2 rounded text-xs font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-400">
+          ERRO // {erro}
         </div>
       )}
 
-      <SurfaceCard className="p-4 flex flex-wrap items-center gap-3">
-        <span className="text-xs text-slate-500 dark:text-zinc-400">Pasta monitorada</span>
-        <input
-          type="text"
-          value={pasta}
-          readOnly
-          className="flex-1 min-w-56 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white"
-        />
-        <button
-          onClick={selecionarPasta}
-          disabled={monitorando}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-50 text-xs font-medium text-slate-700 dark:text-zinc-200 cursor-pointer"
-        >
-          <FolderOpen className="w-4 h-4" />
-          Selecionar
-        </button>
-
-        <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-200 cursor-pointer px-2">
+      {/* Barra de Instrumentação */}
+      <SurfaceCard className="p-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
+            PATH:
+          </span>
           <input
-            type="checkbox"
-            checked={addName}
-            onChange={(e) => toggleAddName(e.target.checked)}
-            className="rounded accent-blue-600"
+            type="text"
+            value={pasta}
+            readOnly
+            className="flex-1 min-w-56 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1.5 font-mono text-xs text-slate-800 dark:text-zinc-200"
           />
-          Nome do cliente
-        </label>
+          <button
+            onClick={selecionarPasta}
+            disabled={monitorando}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-xs font-medium text-slate-700 dark:text-zinc-300 cursor-pointer transition-colors"
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            <span>SELECIONAR</span>
+          </button>
 
-        <button
-          onClick={alternar}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer transition-all ${
-            monitorando
-              ? "bg-red-600 hover:bg-red-500 shadow-sm"
-              : "bg-emerald-600 hover:bg-emerald-500 shadow-sm"
-          }`}
-        >
-          {monitorando ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-          {monitorando ? "Parar Monitor" : "Iniciar Monitor"}
-        </button>
+          <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300 cursor-pointer px-2 border-l border-slate-200 dark:border-zinc-800">
+            <input
+              type="checkbox"
+              checked={addName}
+              onChange={(e) => toggleAddName(e.target.checked)}
+              className="rounded accent-blue-600"
+            />
+            <span className="font-mono text-[11px]">NOME NO PADDING</span>
+          </label>
+
+          <button
+            onClick={alternar}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded text-xs font-semibold text-white cursor-pointer transition-all ${
+              monitorando
+                ? "bg-red-600 hover:bg-red-500 shadow-2xs"
+                : "bg-emerald-600 hover:bg-emerald-500 shadow-2xs"
+            }`}
+          >
+            {monitorando ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{monitorando ? "PARAR MONITOR" : "INICIAR MONITOR"}</span>
+          </button>
+        </div>
       </SurfaceCard>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="✔ Processados" value={counters.ok} tone="emerald" />
-        <StatCard label="📦 Duplicados" value={counters.skip} tone="amber" />
-        <StatCard label="✘ Erros" value={counters.err} tone="red" />
-        <StatCard label="📦 Lotes" value={counters.tot} tone="sky" />
+      {/* Telemetria Numérica */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <StatCard label="PROCESSADOS" value={counters.ok} tone="emerald" />
+        <StatCard label="DUPLICADOS" value={counters.skip} tone="amber" />
+        <StatCard label="ERROS DE ARTE" value={counters.err} tone="red" />
+        <StatCard label="LOTES COMPLETOS" value={counters.tot} tone="sky" />
       </div>
 
-      <div className="inline-flex p-1 rounded-xl bg-slate-100 dark:bg-[#151521] border border-slate-200 dark:border-white/[0.06] self-start gap-1">
+      {/* Tabs */}
+      <div className="inline-flex p-0.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 self-start gap-1 font-mono text-xs">
         <button
           onClick={() => setAba("monitor")}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+          className={`px-3 py-1 rounded cursor-pointer transition-colors ${
             aba === "monitor"
-              ? "bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs"
+              ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-semibold shadow-2xs"
               : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
-          Monitor & Log
+          LOG DO WATCHER
         </button>
         <button
           onClick={() => setAba("grid")}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
+          className={`px-3 py-1 rounded cursor-pointer transition-colors ${
             aba === "grid"
-              ? "bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs"
+              ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-semibold shadow-2xs"
               : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
-          Grid de Arquivos ({debugItems.length})
+          GRID DE INSPEÇÃO ({debugItems.length})
         </button>
       </div>
 
       {aba === "monitor" ? (
         <TerminalLog
           lines={logs}
-          emptyText="Aguardando início do monitoramento..."
+          emptyText="Aguardando inicialização do watcher..."
           logRef={logRef}
+          onClear={() => setLogs([])}
         />
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
           {debugItems.map((it, idx) => (
-            <SurfaceCard key={idx} className="p-3.5 flex flex-col gap-2">
+            <SurfaceCard key={idx} className="p-3 flex flex-col gap-2">
               {it.thumb_base64 && (
-                <img
-                  src={`data:image/png;base64,${it.thumb_base64}`}
-                  alt={it.name}
-                  className="h-32 w-full object-contain rounded-lg bg-slate-100 dark:bg-[#0b0b12]"
-                />
+                <div className="h-28 w-full rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 flex items-center justify-center overflow-hidden">
+                  <img
+                    src={`data:image/png;base64,${it.thumb_base64}`}
+                    alt={it.name}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
               )}
-              <div className="text-xs font-bold text-slate-900 dark:text-white truncate" title={it.name}>
+              <div className="font-mono text-xs font-bold text-slate-900 dark:text-white truncate" title={it.name}>
                 {it.name}
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-zinc-400 space-y-0.5">
-                <div>Cliente: {it.client || "—"}</div>
+              <div className="font-mono text-[10px] text-slate-500 dark:text-zinc-400 space-y-0.5">
+                <div>CLIENTE: <span className="text-slate-800 dark:text-zinc-200 font-semibold">{it.client || "—"}</span></div>
                 <div>
                   {it.width_cm.toFixed(1)} × {it.height_cm.toFixed(1)} cm ({it.dpi.toFixed(0)} DPI)
                 </div>
-                <div>
-                  ICC: {it.icc ? "sim" : "não"} | Rot: {it.rotated ? "sim" : "não"}
+                <div className="flex gap-2">
+                  <span>ICC: {it.icc ? "SIM" : "NÃO"}</span>
+                  <span>|</span>
+                  <span>ROT: {it.rotated ? "90°" : "0°"}</span>
                 </div>
               </div>
             </SurfaceCard>

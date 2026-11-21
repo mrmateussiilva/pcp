@@ -1,83 +1,133 @@
-import { ArrowRight } from "lucide-react";
-import { ModuleIcon } from "../App";
+import { ChevronRight, HardDrive, Server } from "lucide-react";
+import { ModuleIcon, StatusInfo } from "../App";
 import { MODULOS, ModuloId } from "../modules/registry";
+import { SurfaceCard } from "../components/ui";
 
 interface HomePageProps {
   onAbrir: (id: ModuloId) => void;
+  statusMap: Partial<Record<ModuloId, StatusInfo>>;
+  driveBase: string;
 }
 
-const ACCENTS = {
-  amber:
-    "from-amber-500/15 to-amber-500/5 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20",
-  sky: "from-sky-500/15 to-sky-500/5 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-500/20",
-  violet:
-    "from-violet-500/15 to-violet-500/5 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-500/20",
-  emerald:
-    "from-emerald-500/15 to-emerald-500/5 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20",
-  rose: "from-rose-500/15 to-rose-500/5 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/20",
-  indigo:
-    "from-indigo-500/15 to-indigo-500/5 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-500/20",
-  teal: "from-teal-500/15 to-teal-500/5 text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-500/20",
-  orange:
-    "from-orange-500/15 to-orange-500/5 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/20",
-  cyan: "from-cyan-500/15 to-cyan-500/5 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/20",
-};
+export function HomePage({ onAbrir, statusMap, driveBase }: HomePageProps) {
+  const agora = new Date();
+  const dataFormatada = agora.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 
-export function HomePage({ onAbrir }: HomePageProps) {
+  const GRUPOS = ["DIA A DIA", "PRODUÇÃO", "COMUNICAÇÃO"] as const;
+  const modulosAtivos = Object.keys(statusMap).length;
+
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="mb-8">
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 mb-2">
-          Central de Produção
-        </span>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
-          Ferramentas do PCP
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
-          Selecione um módulo abaixo ou use{" "}
-          <kbd className="px-1.5 py-0.5 rounded bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-zinc-300 font-mono text-xs">
-            Ctrl+1..7
-          </kbd>{" "}
-          para alternar rapidamente.
-        </p>
+    <div className="p-6 max-w-6xl mx-auto space-y-5">
+      {/* Barra de Telemetria de Entrada */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-zinc-800">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <h1 className="text-base font-bold tracking-tight text-slate-900 dark:text-zinc-100 uppercase">
+              Centro de Operação // PCP Central
+            </h1>
+          </div>
+          <p className="text-xs font-mono text-slate-500 dark:text-zinc-400 mt-0.5 capitalize">
+            {dataFormatada} • Base Operacional: <span className="text-slate-800 dark:text-zinc-200 font-semibold">{driveBase}</span>
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs font-mono">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#111115]">
+            <Server className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-slate-500 dark:text-zinc-400">SERVIÇOS:</span>
+            <span className="font-bold text-slate-900 dark:text-zinc-100">{modulosAtivos} ATIVO(S)</span>
+          </div>
+
+          <button
+            onClick={() => onAbrir("pastas")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-blue-600 bg-blue-600 hover:bg-blue-500 text-white font-medium cursor-pointer transition-colors shadow-2xs"
+          >
+            <HardDrive className="w-3.5 h-3.5" />
+            <span>ESTRUTURAR DIA</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {MODULOS.map((m, idx) => (
-          <button
-            key={m.id}
-            onClick={() => onAbrir(m.id)}
-            className="group text-left rounded-2xl bg-white dark:bg-[#151521]/90 border border-slate-200/90 dark:border-white/[0.07] p-5 flex flex-col justify-between hover:border-blue-400 dark:hover:border-blue-500/40 hover:shadow-md dark:hover:bg-[#191928] transition-all duration-200 shadow-sm dark:shadow-lg dark:shadow-black/20 cursor-pointer"
-          >
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div
-                  className={`w-11 h-11 rounded-xl bg-gradient-to-br border flex items-center justify-center ${ACCENTS[m.cor]}`}
-                >
-                  <ModuleIcon id={m.id} className="w-5 h-5" />
-                </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.05] text-slate-500 dark:text-zinc-400 border border-slate-200/80 dark:border-white/5">
-                  Ctrl+{idx + 1}
+      {/* Matriz de Bancadas Operacionais */}
+      <div className="space-y-4">
+        {GRUPOS.map((grupo) => {
+          const itens = MODULOS.filter((m) => m.grupo === grupo);
+          return (
+            <SurfaceCard key={grupo} className="overflow-hidden">
+              <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-900/40 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+                <span className="font-mono font-bold tracking-wider text-slate-600 dark:text-zinc-400 uppercase flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-xs bg-slate-400 dark:bg-zinc-600" />
+                  BANCADA: {grupo}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400 dark:text-zinc-500">
+                  {itens.length} FERRAMENTAS
                 </span>
               </div>
 
-              <h2 className="text-base font-bold text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors">
-                {m.nome}
-              </h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1.5 leading-relaxed">
-                {m.descricao}
-              </p>
-            </div>
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                {itens.map((m) => {
+                  const globalIdx = MODULOS.findIndex((x) => x.id === m.id) + 1;
+                  const st = statusMap[m.id];
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => onAbrir(m.id)}
+                      className="group px-4 py-3 flex items-center justify-between gap-4 hover:bg-slate-50/80 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className="w-8 h-8 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 flex items-center justify-center text-slate-700 dark:text-zinc-300 shrink-0 group-hover:border-slate-400 dark:group-hover:border-zinc-600 transition-colors">
+                          <ModuleIcon id={m.id} className="w-4 h-4" />
+                        </div>
 
-            <div className="mt-5 pt-3 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between text-xs font-medium text-slate-400 dark:text-zinc-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-              <span>{m.grupo}</span>
-              <span className="inline-flex items-center gap-1">
-                Abrir
-                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-            </div>
-          </button>
-        ))}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] text-slate-400 dark:text-zinc-500 font-semibold">
+                              {m.codigo}
+                            </span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {m.nome}
+                            </span>
+                            <span className="text-[9px] font-mono px-1 py-0.2 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400">
+                              {m.tipo}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate mt-0.5 max-w-xl">
+                            {m.descricao}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0 font-mono text-xs">
+                        {st ? (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {st.text}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 dark:text-zinc-600 font-medium">
+                            STANDBY
+                          </span>
+                        )}
+
+                        <kbd className="text-[10px] px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400">
+                          Ctrl+{globalIdx}
+                        </kbd>
+
+                        <ChevronRight className="w-4 h-4 text-slate-300 dark:text-zinc-700 group-hover:text-slate-600 dark:group-hover:text-zinc-300 transition-colors" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </SurfaceCard>
+          );
+        })}
       </div>
     </div>
   );

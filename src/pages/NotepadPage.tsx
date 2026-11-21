@@ -125,7 +125,7 @@ export function NotepadPage() {
   };
 
   const limparParaTodos = () => {
-    if (texto.length > 0 && !window.confirm("Limpar o texto para todos?")) return;
+    if (texto.length > 0 && !window.confirm("Limpar o bloco para todos os PCs conectados?")) return;
     onDigitar("");
     invoke("notepad_set_texto", { text: "" });
   };
@@ -144,83 +144,85 @@ export function NotepadPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">
+    <div className="p-5 h-full flex flex-col gap-3 max-w-7xl mx-auto">
       <PageHeader
-        icon={<FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />}
-        title="Notepad compartilhado"
-        subtitle="O PCP Central vira o servidor. Os outros PCs abrem o link no navegador e editam juntos."
+        icon={<FileText className="w-4 h-4 text-slate-700 dark:text-zinc-300" />}
+        title="Notepad Colaborativo // Axum Sockets"
+        badge="SRV-02"
+        subtitle="Servidor Axum WebSocket + HTTP servindo editor em tempo real na rede local com persistência atômica."
         right={
           <StatusBadge
             active={status.rodando}
-            activeText="Servidor ligado"
-            idleText="Desligado"
+            activeText={`ONLINE :${status.http_port || 8766}`}
+            idleText="OFFLINE"
           />
         }
       />
 
       {erro && (
-        <div className="px-4 py-2.5 rounded-xl text-xs bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300">
-          {erro}
+        <div className="px-3.5 py-2 rounded text-xs font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-400">
+          ERRO // {erro}
         </div>
       )}
 
-      <SurfaceCard className="p-4 space-y-3">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs text-slate-500 dark:text-zinc-400 w-28 shrink-0">
-            Arquivo de estado
+      {/* Toolbar do Servidor */}
+      <SurfaceCard className="p-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-zinc-400 w-28 shrink-0">
+            STATE FILE:
           </span>
           <input
             type="text"
             value={arquivo}
             disabled={status.rodando}
             onChange={(e) => setArquivo(e.target.value)}
-            className="flex-1 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white disabled:opacity-50 focus:outline-none focus:border-blue-500"
+            className="flex-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1.5 font-mono text-xs text-slate-900 dark:text-white disabled:opacity-50"
           />
           <button
             onClick={selecionarArquivo}
             disabled={status.rodando}
-            className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-50 text-slate-700 dark:text-zinc-200 cursor-pointer"
+            className="px-2.5 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-slate-700 dark:text-zinc-300 cursor-pointer"
           >
-            <FolderOpen className="w-4 h-4" />
+            <FolderOpen className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-zinc-800 font-mono text-xs">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-500 dark:text-zinc-400">HTTP</span>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">HTTP:</span>
               <input
                 type="text"
                 value={httpPort}
                 disabled={status.rodando}
                 onChange={(e) => setHttpPort(e.target.value)}
-                className="w-20 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-50"
+                className="w-16 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white disabled:opacity-50"
               />
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-500 dark:text-zinc-400">WS</span>
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">WS:</span>
               <input
                 type="text"
                 value={wsPort}
                 disabled={status.rodando}
                 onChange={(e) => setWsPort(e.target.value)}
-                className="w-20 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-50"
+                className="w-16 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white disabled:opacity-50"
               />
             </div>
 
             <button
               onClick={alternarServidor}
-              className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold text-white cursor-pointer transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded text-xs font-semibold text-white cursor-pointer transition-all ${
                 status.rodando
-                  ? "bg-red-600 hover:bg-red-500 shadow-sm"
-                  : "bg-emerald-600 hover:bg-emerald-500 shadow-sm"
+                  ? "bg-red-600 hover:bg-red-500 shadow-2xs"
+                  : "bg-emerald-600 hover:bg-emerald-500 shadow-2xs"
               }`}
             >
               {status.rodando ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-              {status.rodando ? "Desligar" : "Ligar servidor"}
+              <span>{status.rodando ? "DESLIGAR" : "INICIAR SERVIÇO"}</span>
             </button>
 
-            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-200 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300 cursor-pointer">
               <input
                 type="checkbox"
                 checked={autoIniciar}
@@ -230,19 +232,19 @@ export function NotepadPage() {
                 }}
                 className="rounded accent-blue-600"
               />
-              Ligar ao abrir
+              <span>Auto-start</span>
             </label>
           </div>
 
           {status.rodando && status.link && (
-            <div className="flex items-center gap-2 bg-blue-50 dark:bg-[#0b0b12] border border-blue-200 dark:border-white/10 rounded-xl px-3 py-1.5">
-              <span className="text-xs text-blue-700 dark:text-blue-400 font-mono select-text">
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded px-2.5 py-1">
+              <span className="text-blue-700 dark:text-blue-400 select-text">
                 {status.link}
               </span>
               <button
                 onClick={copiarLink}
-                className="text-blue-600 dark:text-zinc-400 hover:text-blue-800 dark:hover:text-white cursor-pointer"
-                title="Copiar link"
+                className="text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                title="Copiar URL"
               >
                 {copiado ? (
                   <Check className="w-3.5 h-3.5 text-emerald-500" />
@@ -255,39 +257,43 @@ export function NotepadPage() {
         </div>
       </SurfaceCard>
 
-      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-zinc-400 px-1">
+      {/* Barra de metadados do documento */}
+      <div className="flex items-center justify-between font-mono text-[11px] text-slate-500 dark:text-zinc-400 px-1">
         <span>
-          Última alteração:{" "}
-          {status.author ? `${status.author} às ${formatarHora(status.updated_at)}` : "—"}
+          ÚLTIMA MODIFICAÇÃO:{" "}
+          <span className="text-slate-800 dark:text-zinc-200 font-semibold">
+            {status.author ? `${status.author} às ${formatarHora(status.updated_at)}` : "—"}
+          </span>
         </span>
-        <span>
-          {status.rodando ? `${status.clients} outro(s) PC(s) conectado(s)` : ""}
+        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+          {status.rodando ? `${status.clients} NÓS CONECTADOS` : "STANDBY"}
         </span>
       </div>
 
+      {/* Editor Monospace Industrial */}
       <textarea
         value={texto}
         disabled={!status.rodando}
         onChange={(e) => onDigitar(e.target.value)}
         placeholder={
           status.rodando
-            ? "Digite aqui... Todos os PCs conectados veem em tempo real."
-            : "Ligue o servidor para editar..."
+            ? "Digite aqui... Todos os terminais conectados na rede sincronizam em tempo real."
+            : "Ligue o serviço acima para iniciar o editor compartilhado..."
         }
-        className="flex-1 w-full resize-none rounded-2xl bg-white dark:bg-[#0b0b12] border border-slate-200 dark:border-white/[0.08] p-5 font-mono text-base text-slate-900 dark:text-zinc-100 leading-relaxed focus:outline-none focus:border-blue-500 disabled:opacity-40 select-text shadow-sm dark:shadow-inner"
+        className="flex-1 w-full resize-none rounded border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#0c0c0f] p-4 font-mono text-sm text-slate-900 dark:text-zinc-100 leading-relaxed focus:outline-none focus:border-blue-500 disabled:opacity-40 select-text shadow-2xs"
       />
 
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-slate-500 dark:text-zinc-500 tabular-nums">
-          {texto.length} caracteres
+      <div className="flex items-center justify-between font-mono text-xs">
+        <span className="text-slate-500 dark:text-zinc-500 tabular-nums">
+          TAMANHO BUFFER: {texto.length} BYTES
         </span>
         <button
           onClick={limparParaTodos}
           disabled={!status.rodando}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white text-xs font-semibold cursor-pointer transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-300 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-40 cursor-pointer font-semibold transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
-          Limpar para todos
+          <span>LIMPAR BUFFER GERAL</span>
         </button>
       </div>
     </div>

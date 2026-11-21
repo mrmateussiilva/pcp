@@ -91,51 +91,53 @@ export function CalandragemPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-3.5 max-w-full">
+    <div className="p-5 h-full flex flex-col gap-3.5 max-w-full">
       <PageHeader
-        icon={<Flame className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />}
-        title="Painel de Calandragem"
-        subtitle="Embutido no PCP Central e acessível por URL em qualquer navegador da rede local."
+        icon={<Flame className="w-4 h-4 text-slate-700 dark:text-zinc-300" />}
+        title="Painel de Calandragem // Fila em Tempo Real"
+        badge="SRV-01"
+        subtitle="Servidor HTTP Axum embutido na rede local, sincronizado via WebSocket com o Notepad do PCP."
         right={
           <StatusBadge
             active={status.rodando}
-            activeText={`Ativo :${status.porta}`}
-            idleText="Desligado"
+            activeText={`ATIVO :${status.porta}`}
+            idleText="OFFLINE"
           />
         }
       />
 
       {erro && (
-        <div className="px-4 py-2.5 rounded-xl text-xs bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300">
-          {erro}
+        <div className="px-3.5 py-2 rounded text-xs font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-400">
+          ERRO // {erro}
         </div>
       )}
 
-      <SurfaceCard className="p-3.5 flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-slate-500 dark:text-zinc-400">Porta HTTP</span>
+      {/* Toolbar do Servidor */}
+      <SurfaceCard className="p-3 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-1.5 font-mono text-xs">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">PORTA HTTP:</span>
           <input
             type="text"
             value={porta}
             disabled={status.rodando}
             onChange={(e) => setPorta(e.target.value)}
-            className="w-20 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-2.5 py-1.5 text-xs text-slate-900 dark:text-white disabled:opacity-50"
+            className="w-16 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2 py-1 text-xs text-slate-900 dark:text-white disabled:opacity-50"
           />
         </div>
 
         <button
           onClick={alternar}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-semibold text-white cursor-pointer transition-all ${
+          className={`flex items-center gap-2 px-4 py-1.5 rounded text-xs font-semibold text-white cursor-pointer transition-all ${
             status.rodando
-              ? "bg-red-600 hover:bg-red-500 shadow-sm"
-              : "bg-emerald-600 hover:bg-emerald-500 shadow-sm"
+              ? "bg-red-600 hover:bg-red-500 shadow-2xs"
+              : "bg-emerald-600 hover:bg-emerald-500 shadow-2xs"
           }`}
         >
           {status.rodando ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-          {status.rodando ? "Desligar" : "Ligar"}
+          <span>{status.rodando ? "DESLIGAR SERVIDOR" : "LIGAR SERVIDOR"}</span>
         </button>
 
-        <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-200 cursor-pointer">
+        <label className="flex items-center gap-2 text-xs font-mono text-slate-700 dark:text-zinc-300 cursor-pointer">
           <input
             type="checkbox"
             checked={autoIniciar}
@@ -145,18 +147,18 @@ export function CalandragemPage() {
             }}
             className="rounded accent-blue-600"
           />
-          Ligar ao abrir
+          <span>Auto-inicializar com o sistema</span>
         </label>
 
         {status.rodando && status.link && (
-          <div className="ml-auto flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-blue-50 dark:bg-[#0b0b12] border border-blue-200 dark:border-white/10 rounded-xl px-3 py-1.5">
-              <span className="text-xs text-blue-700 dark:text-blue-400 font-mono select-text">
+          <div className="ml-auto flex items-center gap-2 font-mono text-xs">
+            <div className="flex items-center gap-2 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded px-2.5 py-1">
+              <span className="text-blue-700 dark:text-blue-400 select-text">
                 {status.link}
               </span>
               <button
                 onClick={copiarLink}
-                className="text-blue-600 dark:text-zinc-400 hover:text-blue-800 dark:hover:text-white cursor-pointer"
+                className="text-slate-500 hover:text-slate-800 dark:hover:text-white cursor-pointer"
                 title="Copiar URL"
               >
                 {copiado ? (
@@ -169,17 +171,17 @@ export function CalandragemPage() {
 
             <button
               onClick={abrirNavegador}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:opacity-90 text-xs font-semibold cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-700 text-xs font-semibold cursor-pointer"
             >
               <ExternalLink className="w-3.5 h-3.5" />
-              Abrir no navegador
+              <span>ABRIR NO BROWSER</span>
             </button>
           </div>
         )}
       </SurfaceCard>
 
       {status.rodando ? (
-        <div className="flex-1 min-h-0 rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-sm bg-white">
+        <div className="flex-1 min-h-0 rounded border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-2xs bg-white">
           <iframe
             src={`http://127.0.0.1:${status.porta}/`}
             title="Painel de Calandragem"
@@ -187,10 +189,8 @@ export function CalandragemPage() {
           />
         </div>
       ) : (
-        <SurfaceCard className="flex-1 flex items-center justify-center p-10">
-          <div className="text-center text-sm text-slate-500 dark:text-zinc-400">
-            Ligue o servidor acima para usar o Painel de Calandragem aqui ou no navegador.
-          </div>
+        <SurfaceCard className="flex-1 flex items-center justify-center p-8 font-mono text-xs text-slate-500 dark:text-zinc-500">
+          SERVIDOR DE CALANDRAGEM OFFLINE // CLIQUE EM 'LIGAR SERVIDOR' PARA ATIVAR O ESPELHAMENTO
         </SurfaceCard>
       )}
     </div>

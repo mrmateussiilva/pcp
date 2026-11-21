@@ -62,7 +62,6 @@ export function ConsumoPage() {
     });
     const unData = listen<ConsumoResultado>("consumo-atualizado", (e) => {
       setRes(e.payload);
-      // Mantém selecionados apenas arquivos que continuam existindo na pasta
       const existentes = new Set(e.payload.itens.map((i) => i.nome));
       setSelecionados((prev) => {
         const next = new Set<string>();
@@ -168,7 +167,6 @@ export function ConsumoPage() {
 
   const desmarcarTodos = () => setSelecionados(new Set());
 
-  // Soma e gráficos calculados APENAS com base nos arquivos marcados no checkbox
   const resumoSelecionado = useMemo(() => {
     const porCat: Record<string, number> = {
       "Encaixe Normal": 0,
@@ -210,104 +208,111 @@ export function ConsumoPage() {
   const maxTec = Math.max(1, ...tecidosOrdenados.map(([, v]) => v));
 
   return (
-    <div className="p-6 h-full flex flex-col gap-4 max-w-7xl mx-auto">
+    <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">
       <PageHeader
-        icon={<BarChart3 className="w-5 h-5 text-rose-500 dark:text-rose-400" />}
-        title="Consumo / Avarias"
-        subtitle="Observe uma pasta de produção e marque nos checkboxes apenas os arquivos que deseja somar."
-        right={<StatusBadge active={monitorando} activeText="Observando" />}
+        icon={<BarChart3 className="w-4 h-4 text-slate-700 dark:text-zinc-300" />}
+        title="Consumo Linear & Avarias // Metragem"
+        badge="MET-04"
+        subtitle="Analisa cabeçalhos TIFF em lote (160cm mídia / 150cm útil / 155cm emenda). Marque os checkboxes para somar."
+        right={<StatusBadge active={monitorando} activeText="OBSERVANDO" idleText="PARADO" />}
       />
 
       {erro && (
-        <div className="px-4 py-2.5 rounded-xl text-xs bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300">
-          {erro}
+        <div className="px-3.5 py-2 rounded text-xs font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-400">
+          ERRO // {erro}
         </div>
       )}
 
-      {/* Barra de controle da pasta */}
-      <SurfaceCard className="p-4 flex flex-wrap items-center gap-2.5">
-        <span className="text-xs text-slate-500 dark:text-zinc-400">Pasta</span>
-        <input
-          type="text"
-          value={pasta}
-          disabled={monitorando}
-          onChange={(e) => setPasta(e.target.value)}
-          placeholder="Selecione uma pasta com os TIFFs..."
-          className="flex-1 min-w-56 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white disabled:opacity-50 focus:outline-none focus:border-blue-500"
-        />
-        <button
-          onClick={selecionarPasta}
-          disabled={monitorando}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-50 text-xs font-medium text-slate-700 dark:text-zinc-200 cursor-pointer"
-        >
-          <FolderOpen className="w-4 h-4" />
-          Selecionar
-        </button>
+      {/* Barra de controle */}
+      <SurfaceCard className="p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
+            PATH:
+          </span>
+          <input
+            type="text"
+            value={pasta}
+            disabled={monitorando}
+            onChange={(e) => setPasta(e.target.value)}
+            placeholder="Caminho do lote de TIFFs..."
+            className="flex-1 min-w-56 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1.5 font-mono text-xs text-slate-900 dark:text-white disabled:opacity-50"
+          />
+          <button
+            onClick={selecionarPasta}
+            disabled={monitorando}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-xs font-medium text-slate-700 dark:text-zinc-300 cursor-pointer"
+          >
+            <FolderOpen className="w-3.5 h-3.5" />
+            <span>SELECIONAR</span>
+          </button>
 
-        <button
-          onClick={alternarMonitor}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer transition-all ${
-            monitorando
-              ? "bg-red-600 hover:bg-red-500 shadow-sm"
-              : "bg-rose-600 hover:bg-rose-500 shadow-sm"
-          }`}
-        >
-          {monitorando ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-          {monitorando ? "Parar" : "Observar Pasta"}
-        </button>
+          <button
+            onClick={alternarMonitor}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded text-xs font-semibold text-white cursor-pointer transition-all ${
+              monitorando
+                ? "bg-red-600 hover:bg-red-500 shadow-2xs"
+                : "bg-blue-600 hover:bg-blue-500 shadow-2xs"
+            }`}
+          >
+            {monitorando ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{monitorando ? "PARAR OBSERVAÇÃO" : "OBSERVAR PASTA"}</span>
+          </button>
 
-        <button
-          onClick={atualizarAgora}
-          disabled={carregando || !pasta.trim()}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-50 text-xs font-medium text-slate-700 dark:text-zinc-200 cursor-pointer"
-          title="Reanalisar pasta agora"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} />
-          Atualizar
-        </button>
+          <button
+            onClick={atualizarAgora}
+            disabled={carregando || !pasta.trim()}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-xs font-medium text-slate-700 dark:text-zinc-300 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${carregando ? "animate-spin" : ""}`} />
+            <span>ATUALIZAR</span>
+          </button>
+        </div>
       </SurfaceCard>
 
-      {/* KPIs baseados nos selecionados */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* KPIs da seleção */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <StatCard
-          label="Consumo Selecionado"
-          value={`${resumoSelecionado.totalMetros.toFixed(2)} m`}
-          tone="rose"
+          label="CONSUMO SELECIONADO"
+          value={resumoSelecionado.totalMetros.toFixed(2)}
+          unit="m lineares"
+          tone="blue"
         />
         <StatCard
-          label="Marcados para Soma"
+          label="ARQUIVOS MARCADOS"
           value={`${resumoSelecionado.qtdValidos} / ${res?.arquivos_lidos ?? 0}`}
           tone="emerald"
         />
         <StatCard
-          label="Total na Pasta"
-          value={`${((res?.consumo_total_cm ?? 0) / 100).toFixed(2)} m`}
-          tone="sky"
+          label="TOTAL NA PASTA"
+          value={((res?.consumo_total_cm ?? 0) / 100).toFixed(2)}
+          unit="m"
+          tone="zinc"
         />
-        <StatCard label="Erros" value={res?.arquivos_erro ?? 0} tone="red" />
+        <StatCard label="FALHAS DE LEITURA" value={res?.arquivos_erro ?? 0} tone="red" />
       </div>
 
-      {/* Gráficos dinâmicos dos selecionados */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <SurfaceCard className="p-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-3">
-            Consumo por Categoria (selecionados)
-          </h2>
-          <div className="space-y-2.5">
+      {/* Gráficos de telemetria técnica */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+        <SurfaceCard className="p-3.5">
+          <div className="text-[10px] font-mono font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-3 flex items-center justify-between">
+            <span>POR CATEGORIA DE ENCAIXE</span>
+            <span>METRAGEM</span>
+          </div>
+          <div className="space-y-2">
             {categoriasOrdenadas.map(([cat, cm]) => {
               const metros = cm / 100;
               const pct = (cm / maxCat) * 100;
               return (
                 <div key={cat}>
-                  <div className="flex justify-between text-xs text-slate-700 dark:text-zinc-300 mb-1">
-                    <span className="font-medium">{cat}</span>
-                    <span className="font-mono text-rose-600 dark:text-rose-300">
+                  <div className="flex justify-between font-mono text-xs text-slate-700 dark:text-zinc-300 mb-0.5">
+                    <span className="font-semibold">{cat}</span>
+                    <span className="tabular-nums font-bold text-slate-900 dark:text-white">
                       {metros.toFixed(2)} m
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-slate-100 dark:bg-[#0b0b12] overflow-hidden border border-slate-200 dark:border-white/5">
+                  <div className="h-1.5 rounded-xs bg-slate-100 dark:bg-zinc-900 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-rose-600 to-rose-400 transition-all duration-300"
+                      className="h-full bg-slate-800 dark:bg-zinc-300 transition-all duration-300"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -317,30 +322,31 @@ export function ConsumoPage() {
           </div>
         </SurfaceCard>
 
-        <SurfaceCard className="p-4">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-3">
-            Consumo por Tecido (selecionados)
-          </h2>
+        <SurfaceCard className="p-3.5">
+          <div className="text-[10px] font-mono font-bold tracking-wider text-slate-500 dark:text-zinc-400 uppercase mb-3 flex items-center justify-between">
+            <span>POR TECIDO IDENTIFICADO</span>
+            <span>METRAGEM</span>
+          </div>
           {tecidosOrdenados.length === 0 ? (
-            <div className="text-xs text-slate-400 dark:text-zinc-500 py-6 text-center">
-              Marque arquivos na tabela abaixo para calcular por tecido.
+            <div className="font-mono text-xs text-slate-400 dark:text-zinc-600 py-6 text-center">
+              NENHUM ITEM SELECIONADO
             </div>
           ) : (
-            <div className="space-y-2.5 max-h-36 overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
               {tecidosOrdenados.map(([tec, cm]) => {
                 const metros = cm / 100;
                 const pct = (cm / maxTec) * 100;
                 return (
                   <div key={tec}>
-                    <div className="flex justify-between text-xs text-slate-700 dark:text-zinc-300 mb-1">
-                      <span className="font-medium">{tec}</span>
-                      <span className="font-mono text-sky-600 dark:text-sky-300">
+                    <div className="flex justify-between font-mono text-xs text-slate-700 dark:text-zinc-300 mb-0.5">
+                      <span className="font-semibold">{tec}</span>
+                      <span className="tabular-nums font-bold text-slate-900 dark:text-white">
                         {metros.toFixed(2)} m
                       </span>
                     </div>
-                    <div className="h-2 rounded-full bg-slate-100 dark:bg-[#0b0b12] overflow-hidden border border-slate-200 dark:border-white/5">
+                    <div className="h-1.5 rounded-xs bg-slate-100 dark:bg-zinc-900 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-sky-600 to-sky-400 transition-all duration-300"
+                        className="h-full bg-blue-600 dark:bg-blue-500 transition-all duration-300"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -352,69 +358,67 @@ export function ConsumoPage() {
         </SurfaceCard>
       </div>
 
-      {/* Tabela com Checkboxes */}
-      <SurfaceCard className="flex-1 min-h-0 p-4 flex flex-col gap-3">
+      {/* Tabela de Lote */}
+      <SurfaceCard className="flex-1 min-h-0 p-3 flex flex-col gap-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <button
               onClick={toggleTodosVisiveis}
               disabled={itensFiltrados.length === 0}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-40 text-xs font-medium text-slate-700 dark:text-zinc-200 cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 font-mono text-xs text-slate-700 dark:text-zinc-300 cursor-pointer"
             >
-              <CheckSquare className="w-3.5 h-3.5 text-rose-500" />
-              {todosVisiveisMarcados ? "Desmarcar visíveis" : "Marcar visíveis"}
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>{todosVisiveisMarcados ? "DESMARCAR VISÍVEIS" : "MARCAR VISÍVEIS"}</span>
             </button>
 
             <button
               onClick={desmarcarTodos}
               disabled={selecionados.size === 0}
-              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-40 text-xs text-slate-600 dark:text-zinc-300 cursor-pointer"
+              className="px-2.5 py-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 font-mono text-xs text-slate-600 dark:text-zinc-400 cursor-pointer"
             >
-              Limpar seleção ({selecionados.size})
+              LIMPAR SELEÇÃO ({selecionados.size})
             </button>
           </div>
 
           <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-400 absolute left-3" />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5" />
             <input
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Filtrar arquivo ou tecido..."
-              className="w-60 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 pl-8 pr-3 py-1.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
+              placeholder="FILTRAR LOTE..."
+              className="w-56 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 pl-8 pr-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/[0.06] font-mono text-xs select-text">
+        <div className="flex-1 overflow-y-auto rounded border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 font-mono text-xs select-text">
           <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 bg-slate-100 dark:bg-[#141420] text-slate-600 dark:text-zinc-400 border-b border-slate-200 dark:border-white/10">
+            <thead className="sticky top-0 bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-b border-slate-200 dark:border-zinc-800 text-[10px] uppercase">
               <tr>
-                <th className="py-2.5 px-3 w-10 text-center">
+                <th className="py-2 px-3 w-8 text-center">
                   <input
                     type="checkbox"
                     checked={todosVisiveisMarcados}
                     onChange={toggleTodosVisiveis}
                     disabled={itensFiltrados.length === 0}
-                    className="rounded accent-rose-600 cursor-pointer"
+                    className="rounded accent-blue-600 cursor-pointer"
                   />
                 </th>
-                <th className="py-2.5 px-3">Arquivo</th>
-                <th className="py-2.5 px-3">Tecido</th>
-                <th className="py-2.5 px-3">Consumo</th>
-                <th className="py-2.5 px-3">Status</th>
+                <th className="py-2 px-3">ARQUIVO TIFF</th>
+                <th className="py-2 px-3">TECIDO</th>
+                <th className="py-2 px-3">CONSUMO</th>
+                <th className="py-2 px-3">ENCAIXE / DIAGNÓSTICO</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200/70 dark:divide-white/[0.04]">
+            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
               {itensFiltrados.length === 0 ? (
                 <tr>
                   <td
                     colSpan={5}
-                    className="py-10 text-center text-slate-400 dark:text-zinc-500 font-sans"
+                    className="py-10 text-center text-slate-400 dark:text-zinc-600 font-mono text-xs"
                   >
-                    {res
-                      ? "Nenhum arquivo corresponde ao filtro."
-                      : "Selecione uma pasta e clique em Observar Pasta."}
+                    {res ? "NENHUM ARQUIVO CORRESPONDE AO FILTRO." : "SELECIONE UMA PASTA E INICIE A LEITURA."}
                   </td>
                 </tr>
               ) : (
@@ -426,36 +430,36 @@ export function ConsumoPage() {
                       onClick={() => toggleItem(it.nome)}
                       className={`cursor-pointer transition-colors ${
                         marcado
-                          ? "bg-rose-50/80 dark:bg-rose-500/10 hover:bg-rose-100/70 dark:hover:bg-rose-500/15"
-                          : "hover:bg-slate-100/70 dark:hover:bg-white/[0.03]"
+                          ? "bg-blue-50/80 dark:bg-blue-950/25 hover:bg-blue-100/60 dark:hover:bg-blue-950/35"
+                          : "hover:bg-slate-50 dark:hover:bg-zinc-900/40"
                       }`}
                     >
                       <td
-                        className="py-2 px-3 text-center"
+                        className="py-1.5 px-3 text-center"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <input
                           type="checkbox"
                           checked={marcado}
                           onChange={() => toggleItem(it.nome)}
-                          className="rounded accent-rose-600 cursor-pointer"
+                          className="rounded accent-blue-600 cursor-pointer"
                         />
                       </td>
-                      <td className="py-2 px-3 text-slate-800 dark:text-zinc-200 font-medium">
+                      <td className="py-1.5 px-3 text-slate-800 dark:text-zinc-200 font-semibold truncate max-w-sm">
                         {it.nome}
                       </td>
-                      <td className="py-2 px-3 text-sky-600 dark:text-sky-300">
+                      <td className="py-1.5 px-3 text-blue-600 dark:text-blue-400 font-semibold">
                         {it.tecido}
                       </td>
-                      <td className="py-2 px-3 text-emerald-600 dark:text-emerald-300">
+                      <td className="py-1.5 px-3 text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">
                         {it.categoria === "Erro"
                           ? "ERRO"
                           : `${(it.consumo_cm / 100).toFixed(2)} m`}
                       </td>
                       <td
-                        className={`py-2 px-3 ${
+                        className={`py-1.5 px-3 ${
                           it.categoria === "Erro"
-                            ? "text-red-600 dark:text-red-400"
+                            ? "text-red-600 dark:text-red-400 font-bold"
                             : "text-slate-500 dark:text-zinc-400"
                         }`}
                       >

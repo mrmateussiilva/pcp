@@ -115,48 +115,51 @@ export function BolsinhasPage() {
   };
 
   return (
-    <div className="p-6 h-full flex flex-col gap-4 max-w-7xl mx-auto">
+    <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">
       <PageHeader
-        icon={<ShoppingBag className="w-5 h-5 text-violet-500 dark:text-violet-400" />}
-        title="Gerador de Bolsinhas"
-        subtitle="Monitora a pasta PARA FAZER e gera bolsinhas JPEG (10%) em paralelo com verificação de arte repetida."
+        icon={<ShoppingBag className="w-4 h-4 text-slate-700 dark:text-zinc-300" />}
+        title="Gerador de Bolsinhas // JPEG 10%"
+        badge="IMG-02"
+        subtitle="Monitora PARA FAZER, gera bolsinhas JPEG a 10% da dimensão em SIMD e cataloga miniaturas para detectar artes repetidas."
         right={
           <StatusBadge
             active={status.monitorando || status.varrendo}
-            activeText={status.varrendo ? "Varrendo..." : "Monitorando"}
+            activeText={status.varrendo ? "VARRENDO..." : "WATCHER ATIVO"}
             tone={status.varrendo ? "amber" : "emerald"}
           />
         }
       />
 
       {erro && (
-        <div className="px-4 py-2.5 rounded-xl text-xs bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 text-red-700 dark:text-red-300">
-          {erro}
+        <div className="px-3.5 py-2 rounded text-xs font-mono bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-900/60 text-red-700 dark:text-red-400">
+          ERRO // {erro}
         </div>
       )}
 
-      <SurfaceCard className="p-4 space-y-3">
-        <div className="flex items-center gap-2.5">
-          <span className="text-xs text-slate-500 dark:text-zinc-400 w-32 shrink-0">
-            Pasta PARA FAZER
+      {/* Painel de Controle de Entrada */}
+      <SurfaceCard className="p-3.5 space-y-2.5">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-zinc-400 w-28 shrink-0">
+            DIRETÓRIO ALVO:
           </span>
           <input
             type="text"
             value={pasta}
             disabled={status.monitorando}
             onChange={(e) => setPasta(e.target.value)}
-            className="flex-1 rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 text-xs text-slate-900 dark:text-white disabled:opacity-50 focus:outline-none focus:border-blue-500"
+            className="flex-1 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1.5 font-mono text-xs text-slate-800 dark:text-zinc-200 disabled:opacity-50"
           />
           <button
             onClick={selecionarPasta}
             disabled={status.monitorando}
-            className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-50 text-slate-700 dark:text-zinc-200 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-xs font-medium text-slate-700 dark:text-zinc-300 cursor-pointer"
           >
-            <FolderOpen className="w-4 h-4" />
+            <FolderOpen className="w-3.5 h-3.5" />
+            <span>SELECIONAR</span>
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-5 text-xs text-slate-700 dark:text-zinc-200">
+        <div className="flex flex-wrap gap-4 text-xs font-mono text-slate-700 dark:text-zinc-300 pt-1">
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -164,7 +167,7 @@ export function BolsinhasPage() {
               onChange={(e) => setUsarPai(e.target.checked)}
               className="rounded accent-blue-600"
             />
-            Usar pasta de cima (BOLSINHAS) como 'já feitas'
+            <span>Usar pasta pai (BOLSINHAS) como 'já feitas'</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -173,7 +176,7 @@ export function BolsinhasPage() {
               onChange={(e) => setApagarRepetido(e.target.checked)}
               className="rounded accent-blue-600"
             />
-            Apagar TIFF repetido (em vez de mover p/ REPETIDAS)
+            <span>Apagar TIFF repetido (em vez de mover p/ REPETIDAS)</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input
@@ -182,68 +185,54 @@ export function BolsinhasPage() {
               onChange={(e) => setSom(e.target.checked)}
               className="rounded accent-blue-600"
             />
-            Som de alerta
+            <span>Alerta sonoro</span>
           </label>
         </div>
 
-        <div>
-          <label className="block text-[11px] text-slate-500 dark:text-zinc-400 mb-1">
-            Pastas extras de bolsinhas já feitas (uma por linha, opcional):
-          </label>
-          <textarea
-            rows={2}
-            value={extrasTxt}
-            onChange={(e) => setExtrasTxt(e.target.value)}
-            className="w-full rounded-xl bg-slate-50 dark:bg-[#0b0b12] border border-slate-200 dark:border-white/10 px-3 py-2 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
-          />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 pt-1">
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-zinc-800">
           <button
             onClick={alternar}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white cursor-pointer transition-all ${status.monitorando
-                ? "bg-red-600 hover:bg-red-500 shadow-sm"
-                : "bg-emerald-600 hover:bg-emerald-500 shadow-sm"
-              }`}
+            className={`flex items-center gap-2 px-4 py-1.5 rounded text-xs font-semibold text-white cursor-pointer transition-all ${
+              status.monitorando
+                ? "bg-red-600 hover:bg-red-500 shadow-2xs"
+                : "bg-emerald-600 hover:bg-emerald-500 shadow-2xs"
+            }`}
           >
-            {status.monitorando ? (
-              <Square className="w-3.5 h-3.5" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-            {status.monitorando ? "Parar Monitor" : "Iniciar Monitor"}
+            {status.monitorando ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+            <span>{status.monitorando ? "PARAR MONITOR" : "INICIAR MONITOR"}</span>
           </button>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => executarVarredura(false)}
               disabled={status.varrendo}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-white/[0.07] hover:bg-slate-200 dark:hover:bg-white/15 disabled:opacity-50 text-xs font-medium text-slate-700 dark:text-white cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-40 text-xs font-mono font-medium text-slate-700 dark:text-zinc-300 cursor-pointer"
             >
               <Search className="w-3.5 h-3.5" />
-              Varredura (relatório)
+              <span>VARREDURA (RELATÓRIO)</span>
             </button>
             <button
               onClick={() => executarVarredura(true)}
               disabled={status.varrendo}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-xs font-semibold text-white cursor-pointer shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-amber-600 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-xs font-mono font-semibold text-white cursor-pointer shadow-2xs"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              Varredura + mover duplicadas
+              <span>VARREDURA + MOVER</span>
             </button>
           </div>
         </div>
       </SurfaceCard>
 
+      {/* Telemetria */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-        <StatCard label="✔ Novas" value={counters.novas} tone="emerald" />
-        <StatCard label="↻ Arte nova" value={counters.atualizadas} tone="sky" />
-        <StatCard label="⛔ Repetidas" value={counters.repetidas} tone="amber" />
-        <StatCard label="🗑 Já feitas" value={counters.ja_feitas} tone="zinc" />
-        <StatCard label="✘ Erros" value={counters.erros} tone="red" />
+        <StatCard label="NOVAS (10%)" value={counters.novas} tone="emerald" />
+        <StatCard label="ARTE ATUALIZADA" value={counters.atualizadas} tone="sky" />
+        <StatCard label="REPETIDAS" value={counters.repetidas} tone="amber" />
+        <StatCard label="JÁ FEITAS" value={counters.ja_feitas} tone="zinc" />
+        <StatCard label="FALHAS" value={counters.erros} tone="red" />
       </div>
 
-      <TerminalLog lines={logs} emptyText="Aguardando arquivos..." logRef={logRef} />
+      <TerminalLog lines={logs} emptyText="Aguardando eventos de bolsinhas..." logRef={logRef} onClear={() => setLogs([])} />
     </div>
   );
 }

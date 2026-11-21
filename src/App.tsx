@@ -6,9 +6,9 @@ import {
   FileText,
   Flame,
   FolderTree,
-  Home,
+  HardDrive,
   Info,
-  Layers,
+  LayoutGrid,
   MessageSquare,
   Moon,
   PackageCheck,
@@ -16,6 +16,7 @@ import {
   Scissors,
   ShoppingBag,
   Sun,
+  Terminal,
 } from "lucide-react";
 import "./App.css";
 import { MODULOS, ModuloId } from "./modules/registry";
@@ -36,7 +37,7 @@ const GRUPOS = ["DIA A DIA", "PRODUÇÃO", "COMUNICAÇÃO"] as const;
 export function ModuleIcon({ id, className = "w-4 h-4" }: { id: ModuloId; className?: string }) {
   switch (id) {
     case "inicio":
-      return <Home className={className} />;
+      return <LayoutGrid className={className} />;
     case "pastas":
       return <FolderTree className={className} />;
     case "tiff":
@@ -58,14 +59,15 @@ export function ModuleIcon({ id, className = "w-4 h-4" }: { id: ModuloId; classN
   }
 }
 
+export type StatusInfo = { text: string; cor: "green" | "amber" };
+
 export default function App() {
   const [atual, setAtual] = useState<ModuloId | "about">("inicio");
   const [dark, setDark] = useState<boolean>(() => {
     return localStorage.getItem("pcp-theme") === "dark";
   });
-  const [statusMap, setStatusMap] = useState<
-    Partial<Record<ModuloId, { text: string; cor: "green" | "amber" }>>
-  >({});
+  const [statusMap, setStatusMap] = useState<Partial<Record<ModuloId, StatusInfo>>>({});
+  const [driveBase, setDriveBase] = useState<string>("Z:\\");
 
   useEffect(() => {
     const root = document.documentElement;
@@ -79,46 +81,50 @@ export default function App() {
   }, [dark]);
 
   useEffect(() => {
+    invoke<{ base: string }>("get_config").then((cfg) => {
+      if (cfg?.base) setDriveBase(cfg.base);
+    });
+
     invoke<{ rodando: boolean }>("notepad_status").then((st) => {
       setStatusMap((prev) => ({
         ...prev,
-        notepad: st.rodando ? { text: "servidor ligado", cor: "green" } : undefined,
+        notepad: st.rodando ? { text: "HTTP/WS :8766", cor: "green" } : undefined,
       }));
     });
     invoke<{ rodando: boolean; porta: number }>("whatsapp_status").then((st) => {
       setStatusMap((prev) => ({
         ...prev,
         whatsapp: st.rodando
-          ? { text: `ouvindo :${st.porta}`, cor: "green" }
+          ? { text: `HOOK :${st.porta}`, cor: "green" }
           : undefined,
       }));
     });
     invoke<{ monitorando: boolean }>("tiff_status").then((st) => {
       setStatusMap((prev) => ({
         ...prev,
-        tiff: st.monitorando ? { text: "monitorando", cor: "green" } : undefined,
+        tiff: st.monitorando ? { text: "WATCHER ATIVO", cor: "green" } : undefined,
       }));
     });
     invoke<{ monitorando: boolean; varrendo: boolean }>("bolsinhas_status").then((st) => {
       setStatusMap((prev) => ({
         ...prev,
         bolsinhas: st.varrendo
-          ? { text: "varrendo…", cor: "amber" }
+          ? { text: "VARRENDO...", cor: "amber" }
           : st.monitorando
-          ? { text: "monitorando", cor: "green" }
+          ? { text: "WATCHER ATIVO", cor: "green" }
           : undefined,
       }));
     });
     invoke<{ rodando: boolean; porta: number }>("calandragem_status").then((st) => {
       setStatusMap((prev) => ({
         ...prev,
-        calandragem: st.rodando ? { text: `ativa :${st.porta}`, cor: "green" } : undefined,
+        calandragem: st.rodando ? { text: `SRV :${st.porta}`, cor: "green" } : undefined,
       }));
     });
     invoke<{ monitorando: boolean }>("consumo_status").then((st) => {
       setStatusMap((prev) => ({
         ...prev,
-        consumo: st.monitorando ? { text: "observando", cor: "green" } : undefined,
+        consumo: st.monitorando ? { text: "OBSERVANDO", cor: "green" } : undefined,
       }));
     });
 
@@ -126,7 +132,7 @@ export default function App() {
       setStatusMap((prev) => ({
         ...prev,
         notepad: e.payload.rodando
-          ? { text: "servidor ligado", cor: "green" }
+          ? { text: "HTTP/WS :8766", cor: "green" }
           : undefined,
       }));
     });
@@ -134,7 +140,7 @@ export default function App() {
       setStatusMap((prev) => ({
         ...prev,
         whatsapp: e.payload.rodando
-          ? { text: `ouvindo :${e.payload.porta}`, cor: "green" }
+          ? { text: `HOOK :${e.payload.porta}`, cor: "green" }
           : undefined,
       }));
     });
@@ -142,7 +148,7 @@ export default function App() {
       setStatusMap((prev) => ({
         ...prev,
         tiff: e.payload.monitorando
-          ? { text: "monitorando", cor: "green" }
+          ? { text: "WATCHER ATIVO", cor: "green" }
           : undefined,
       }));
     });
@@ -152,9 +158,9 @@ export default function App() {
         setStatusMap((prev) => ({
           ...prev,
           bolsinhas: e.payload.varrendo
-            ? { text: "varrendo…", cor: "amber" }
+            ? { text: "VARRENDO...", cor: "amber" }
             : e.payload.monitorando
-            ? { text: "monitorando", cor: "green" }
+            ? { text: "WATCHER ATIVO", cor: "green" }
             : undefined,
         }));
       }
@@ -162,7 +168,7 @@ export default function App() {
     const unCort = listen<boolean>("cortador-status", (e) => {
       setStatusMap((prev) => ({
         ...prev,
-        cortador: e.payload ? { text: "cortando…", cor: "amber" } : undefined,
+        cortador: e.payload ? { text: "CORTANDO...", cor: "amber" } : undefined,
       }));
     });
     const unShopee = listen<{ monitorando: boolean; executando: boolean }>(
@@ -171,9 +177,9 @@ export default function App() {
         setStatusMap((prev) => ({
           ...prev,
           shopee: e.payload.executando
-            ? { text: "gerando…", cor: "amber" }
+            ? { text: "RENDERIZANDO...", cor: "amber" }
             : e.payload.monitorando
-            ? { text: "observando", cor: "green" }
+            ? { text: "WATCHER ATIVO", cor: "green" }
             : undefined,
         }));
       }
@@ -185,7 +191,7 @@ export default function App() {
         setStatusMap((prev) => ({
           ...prev,
           calandragem: e.payload.rodando
-            ? { text: `ativa :${e.payload.porta}`, cor: "green" }
+            ? { text: `SRV :${e.payload.porta}`, cor: "green" }
             : undefined,
         }));
       }
@@ -196,7 +202,7 @@ export default function App() {
         setStatusMap((prev) => ({
           ...prev,
           consumo: e.payload.monitorando
-            ? { text: "observando", cor: "green" }
+            ? { text: "OBSERVANDO", cor: "green" }
             : undefined,
         }));
       }
@@ -232,153 +238,199 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  const totalAtivos = Object.values(statusMap).filter(Boolean).length;
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-[#0d0d14] text-slate-900 dark:text-zinc-100">
-      {/* Sidebar */}
-      <aside className="w-[248px] shrink-0 bg-white dark:bg-[#11111b] border-r border-slate-200 dark:border-white/[0.06] flex flex-col">
-        <div className="px-4 pt-5 pb-4 flex items-center gap-3 border-b border-slate-100 dark:border-white/[0.05]">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-600/20">
-            <Layers className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <div className="text-sm font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              PCP Central
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 dark:bg-white/10 text-blue-700 dark:text-zinc-300 border border-blue-200/70 dark:border-transparent">
-                RUST
-              </span>
-            </div>
-            <div className="text-[11px] text-slate-500 dark:text-zinc-500">
-              Sublimação & Produção
-            </div>
-          </div>
-        </div>
-
-        <nav className="flex-1 overflow-y-auto px-2.5 py-3 space-y-1">
-          <button
-            onClick={() => setAtual("inicio")}
-            className={`group w-full flex items-center justify-between px-3 py-2 rounded-xl text-[13px] text-left transition-all cursor-pointer ${
-              atual === "inicio"
-                ? "bg-blue-50 dark:bg-blue-600/15 text-blue-700 dark:text-white font-semibold border border-blue-200 dark:border-blue-500/25 shadow-xs"
-                : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-white/[0.04] border border-transparent"
-            }`}
-          >
-            <span className="flex items-center gap-2.5">
-              <ModuleIcon
-                id="inicio"
-                className={`w-4 h-4 ${
-                  atual === "inicio"
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-slate-400 dark:text-zinc-500 group-hover:text-slate-700 dark:group-hover:text-zinc-300"
-                }`}
-              />
-              <span>Início</span>
-            </span>
-            <kbd className="text-[10px] text-slate-400 dark:text-zinc-600 font-mono">^0</kbd>
-          </button>
-
-          {GRUPOS.map((grupo) => {
-            const itens = MODULOS.filter((m) => m.grupo === grupo);
-            return (
-              <div key={grupo} className="pt-3.5">
-                <div className="px-3 pb-1.5 text-[10px] font-bold tracking-widest text-slate-400 dark:text-zinc-500/80 uppercase">
-                  {grupo}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#f4f5f8] dark:bg-[#09090b] text-slate-800 dark:text-zinc-200 antialiased select-none font-sans flex-col">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Sidebar Técnica Industrial */}
+        <aside className="w-[224px] shrink-0 bg-white dark:bg-[#0e0e11] border-r border-slate-200 dark:border-zinc-800 flex flex-col justify-between">
+          <div className="flex flex-col min-h-0">
+            {/* Header da Barra Lateral */}
+            <div className="px-3.5 py-3 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded border border-slate-400 dark:border-zinc-700 bg-slate-900 dark:bg-zinc-100 flex items-center justify-center text-white dark:text-slate-900">
+                  <Terminal className="w-3 h-3" />
                 </div>
-                <div className="space-y-0.5">
-                  {itens.map((m) => {
-                    const st = statusMap[m.id];
-                    const idx = MODULOS.findIndex((x) => x.id === m.id) + 1;
-                    const active = atual === m.id;
-                    return (
-                      <div key={m.id}>
-                        <button
-                          onClick={() => setAtual(m.id)}
-                          className={`group w-full flex items-center justify-between px-3 py-2 rounded-xl text-[13px] text-left transition-all cursor-pointer ${
-                            active
-                              ? "bg-blue-50 dark:bg-blue-600/15 text-blue-700 dark:text-white font-semibold border border-blue-200 dark:border-blue-500/25 shadow-xs"
-                              : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-white/[0.04] border border-transparent"
-                          }`}
-                        >
-                          <span className="flex items-center gap-2.5 truncate">
-                            <ModuleIcon
-                              id={m.id}
-                              className={`w-4 h-4 shrink-0 ${
-                                active
-                                  ? "text-blue-600 dark:text-blue-400"
-                                  : "text-slate-400 dark:text-zinc-500 group-hover:text-slate-700 dark:group-hover:text-zinc-300"
-                              }`}
-                            />
-                            <span className="truncate">{m.nome}</span>
-                          </span>
-                          <kbd className="text-[10px] text-slate-400 dark:text-zinc-600 font-mono ml-1">
-                            ^{idx}
-                          </kbd>
-                        </button>
-                        {st && (
-                          <div className="pl-9 pr-2 pb-1 pt-0.5 flex items-center gap-1.5 text-[11px]">
-                            <span
-                              className={`w-1.5 h-1.5 rounded-full animate-pulse ${
-                                st.cor === "amber" ? "bg-amber-500" : "bg-emerald-500"
-                              }`}
-                            />
-                            <span
-                              className={`truncate font-medium ${
-                                st.cor === "amber"
-                                  ? "text-amber-600 dark:text-amber-300"
-                                  : "text-emerald-600 dark:text-emerald-300"
-                              }`}
-                            >
-                              {st.text}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                <div>
+                  <div className="text-xs font-bold tracking-tight text-slate-900 dark:text-zinc-100 leading-none">
+                    PCP CENTRAL
+                  </div>
+                  <div className="text-[9px] font-mono text-slate-500 dark:text-zinc-500 tracking-wider">
+                    SUBLIMAÇÃO // RIP
+                  </div>
                 </div>
               </div>
-            );
-          })}
-        </nav>
+              <span className="text-[9px] font-mono font-semibold px-1 py-0.5 rounded border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400">
+                v2.0
+              </span>
+            </div>
 
-        <div className="px-3 py-2.5 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between gap-1">
-          <button
-            onClick={() => setDark((d) => !d)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] cursor-pointer transition-colors"
-            title="Alternar tema claro/escuro"
-          >
-            {dark ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-slate-500" />}
-            <span>{dark ? "Claro" : "Escuro"}</span>
-          </button>
+            {/* Navegação */}
+            <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+              <button
+                onClick={() => setAtual("inicio")}
+                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-colors ${
+                  atual === "inicio"
+                    ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 shadow-2xs font-semibold"
+                    : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/60"
+                }`}
+              >
+                <span className="flex items-center gap-2 truncate">
+                  <ModuleIcon
+                    id="inicio"
+                    className={`w-3.5 h-3.5 ${
+                      atual === "inicio"
+                        ? "text-white dark:text-slate-900"
+                        : "text-slate-400 dark:text-zinc-500"
+                    }`}
+                  />
+                  <span>Centro de Comando</span>
+                </span>
+                <kbd className={`text-[9px] font-mono px-1 rounded ${
+                  atual === "inicio" ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
+                }`}>^0</kbd>
+              </button>
 
-          <button
-            onClick={() => setAtual("about")}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
-              atual === "about"
-                ? "bg-blue-50 dark:bg-blue-600/15 text-blue-700 dark:text-white"
-                : "text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
-            }`}
-            title="Sobre o PCP Central"
-          >
-            <Info className="w-3.5 h-3.5" />
-            <span>About</span>
-          </button>
+              {GRUPOS.map((grupo) => {
+                const itens = MODULOS.filter((m) => m.grupo === grupo);
+                return (
+                  <div key={grupo} className="pt-3">
+                    <div className="px-2.5 pb-1 text-[9px] font-mono font-semibold tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                      {grupo}
+                    </div>
+                    <div className="space-y-0.5">
+                      {itens.map((m) => {
+                        const st = statusMap[m.id];
+                        const idx = MODULOS.findIndex((x) => x.id === m.id) + 1;
+                        const active = atual === m.id;
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => setAtual(m.id)}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs cursor-pointer transition-colors ${
+                              active
+                                ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 font-semibold shadow-2xs"
+                                : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/60 font-medium"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 truncate">
+                              <ModuleIcon
+                                id={m.id}
+                                className={`w-3.5 h-3.5 shrink-0 ${
+                                  active
+                                    ? "text-white dark:text-slate-900"
+                                    : "text-slate-400 dark:text-zinc-500"
+                                }`}
+                              />
+                              <span className="truncate">{m.nome}</span>
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                              {st && (
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    st.cor === "amber" ? "bg-amber-500" : "bg-emerald-500"
+                                  } animate-pulse`}
+                                  title={st.text}
+                                />
+                              )}
+                              <kbd className={`text-[9px] font-mono px-0.5 rounded ${
+                                active ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
+                              }`}>
+                                ^{idx}
+                              </kbd>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Rodapé da Sidebar */}
+          <div className="p-2 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+            <button
+              onClick={() => setDark((d) => !d)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+              title="Alternar Modo Claro / Escuro"
+            >
+              {dark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-slate-500" />}
+              <span>{dark ? "Claro" : "Escuro"}</span>
+            </button>
+
+            <button
+              onClick={() => setAtual("about")}
+              className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors ${
+                atual === "about"
+                  ? "bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-white"
+                  : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <Info className="w-3.5 h-3.5" />
+              <span>Specs</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Área de Trabalho Central */}
+        <main className="flex-1 overflow-y-auto bg-[#f8f9fa] dark:bg-[#09090b]">
+          {atual === "inicio" && <HomePage onAbrir={setAtual} statusMap={statusMap} driveBase={driveBase} />}
+          {atual === "pastas" && <PastasDiaPage />}
+          {atual === "tiff" && <TiffProcessorPage />}
+          {atual === "bolsinhas" && <BolsinhasPage />}
+          {atual === "cortador" && <CortadorPage />}
+          {atual === "consumo" && <ConsumoPage />}
+          {atual === "shopee" && <ShopeePage />}
+          {atual === "calandragem" && <CalandragemPage />}
+          {atual === "notepad" && <NotepadPage />}
+          {atual === "whatsapp" && <WhatsappPage />}
+          {atual === "about" && <AboutPage />}
+        </main>
+      </div>
+
+      {/* Barra de Telemetria Inferior (Industrial Status Bar) */}
+      <footer className="h-6.5 shrink-0 bg-white dark:bg-[#0c0c0e] border-t border-slate-200 dark:border-zinc-800/80 px-3 flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-zinc-400 z-10">
+        <div className="flex items-center gap-4">
+          <span className="flex items-center gap-1.5">
+            <HardDrive className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
+            <span className="text-slate-700 dark:text-zinc-300 font-semibold">{driveBase}</span>
+          </span>
+          <span className="text-slate-300 dark:text-zinc-700">|</span>
+          <span className="flex items-center gap-1">
+            <span className="text-slate-400 dark:text-zinc-500">SERVIÇOS ATIVOS:</span>
+            <span className={`font-semibold ${totalAtivos > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
+              {totalAtivos}
+            </span>
+          </span>
+          {statusMap.notepad && (
+            <>
+              <span className="text-slate-300 dark:text-zinc-700">•</span>
+              <span className="text-emerald-600 dark:text-emerald-400">NOTEPAD :8766</span>
+            </>
+          )}
+          {statusMap.calandragem && (
+            <>
+              <span className="text-slate-300 dark:text-zinc-700">•</span>
+              <span className="text-emerald-600 dark:text-emerald-400">CALANDRAGEM :8767</span>
+            </>
+          )}
+          {statusMap.whatsapp && (
+            <>
+              <span className="text-slate-300 dark:text-zinc-700">•</span>
+              <span className="text-emerald-600 dark:text-emerald-400">ZAP :5050</span>
+            </>
+          )}
         </div>
-      </aside>
 
-      {/* Área principal */}
-      <main className="flex-1 overflow-y-auto bg-[radial-gradient(ellipse_at_top_right,_rgba(59,130,246,0.06),_transparent_50%)]">
-        {atual === "inicio" && <HomePage onAbrir={setAtual} />}
-        {atual === "pastas" && <PastasDiaPage />}
-        {atual === "tiff" && <TiffProcessorPage />}
-        {atual === "bolsinhas" && <BolsinhasPage />}
-        {atual === "cortador" && <CortadorPage />}
-        {atual === "consumo" && <ConsumoPage />}
-        {atual === "shopee" && <ShopeePage />}
-        {atual === "calandragem" && <CalandragemPage />}
-        {atual === "notepad" && <NotepadPage />}
-        {atual === "whatsapp" && <WhatsappPage />}
-        {atual === "about" && <AboutPage />}
-      </main>
+        <div className="flex items-center gap-3">
+          <span>ATALHOS: [Ctrl+0..9]</span>
+          <span className="text-slate-300 dark:text-zinc-700">|</span>
+          <span className="text-slate-600 dark:text-zinc-400">PCP_KERNEL_RUST_OK</span>
+        </div>
+      </footer>
     </div>
   );
 }
