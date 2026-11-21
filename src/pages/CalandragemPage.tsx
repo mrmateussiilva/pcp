@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Check, Copy, ExternalLink, Flame, Play, Square } from "lucide-react";
 import { PageHeader, StatusBadge, SurfaceCard } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface CalandragemConfig {
   porta: number;
@@ -89,6 +90,12 @@ export function CalandragemPage() {
       window.open(status.link, "_blank");
     }
   };
+
+  usePageShortcuts([
+    { id: "cal-toggle", combo: "ctrl+enter", keys: "Ctrl+Enter", label: status.rodando ? "Parar Servidor Calandragem" : "Iniciar Servidor Calandragem", action: alternar },
+    { id: "cal-copy", combo: "ctrl+shift+c", keys: "Ctrl+Shift+C", label: "Copiar Link da Rede", action: copiarLink },
+    { id: "cal-open", combo: "ctrl+o", keys: "Ctrl+O", label: "Abrir Painel no Navegador", action: abrirNavegador },
+  ]);
 
   return (
     <div className="p-5 h-full flex flex-col gap-3.5 max-w-full">

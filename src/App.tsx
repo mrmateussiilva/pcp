@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import {
@@ -8,10 +8,13 @@ import {
   FolderTree,
   HardDrive,
   Info,
+  Keyboard,
   LayoutGrid,
   MessageSquare,
   Moon,
   PackageCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
   Printer,
   Scissors,
   ShoppingBag,
@@ -20,6 +23,9 @@ import {
 } from "lucide-react";
 import "./App.css";
 import { MODULOS, ModuloId } from "./modules/registry";
+import { ShortcutProvider, isEditableTarget } from "./hooks/useShortcuts";
+import { CommandPalette } from "./components/CommandPalette";
+import { ShortcutsModal } from "./components/ShortcutsModal";
 import { HomePage } from "./pages/HomePage";
 import { PastasDiaPage } from "./pages/PastasDiaPage";
 import { TiffProcessorPage } from "./pages/TiffProcessorPage";
@@ -33,6 +39,7 @@ import { WhatsappPage } from "./pages/WhatsappPage";
 import { AboutPage } from "./pages/AboutPage";
 
 const GRUPOS = ["DIA A DIA", "PRODUÇÃO", "COMUNICAÇÃO"] as const;
+const NAV_ORDER: (ModuloId | "about")[] = ["inicio", ...MODULOS.map((m) => m.id), "about"];
 
 export function ModuleIcon({ id, className = "w-4 h-4" }: { id: ModuloId; className?: string }) {
   switch (id) {
@@ -66,8 +73,34 @@ export default function App() {
   const [dark, setDark] = useState<boolean>(() => {
     return localStorage.getItem("pcp-theme") === "dark";
   });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem("pcp-sidebar") === "collapsed";
+  });
   const [statusMap, setStatusMap] = useState<Partial<Record<ModuloId, StatusInfo>>>({});
   const [driveBase, setDriveBase] = useState<string>("Z:\\");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  const toggleTheme = useCallback(() => setDark((d) => !d), []);
+  const toggleSidebar = useCallback(() => setSidebarCollapsed((c) => !c), []);
+
+  useEffect(() => {
+    localStorage.setItem("pcp-sidebar", sidebarCollapsed ? "collapsed" : "expanded");
+  }, [sidebarCollapsed]);
+
+  const nextTab = useCallback(() => {
+    setAtual((cur) => {
+      const idx = NAV_ORDER.indexOf(cur);
+      return NAV_ORDER[(idx + 1) % NAV_ORDER.length];
+    });
+  }, []);
+
+  const prevTab = useCallback(() => {
+    setAtual((cur) => {
+      const idx = NAV_ORDER.indexOf(cur);
+      return NAV_ORDER[(idx - 1 + NAV_ORDER.length) % NAV_ORDER.length];
+    });
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -222,55 +255,165 @@ export default function App() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!e.ctrlKey || e.altKey || e.shiftKey) return;
-      if (e.key === "0") {
+      const key = e.key.toLowerCase();
+      const editable = isEditableTarget(e.target);
+
+      // Paleta de Comandos: Ctrl+K ou Ctrl+P
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && (key === "k" || key === "p")) {
         e.preventDefault();
-        setAtual("inicio");
+        setHelpOpen(false);
+        setPaletteOpen((v) => !v);
         return;
       }
-      const n = Number(e.key);
-      if (n >= 1 && n <= 9 && MODULOS[n - 1]) {
+
+      // Guia de Atalhos: F1, Ctrl+/ ou ? (fora de campos editáveis)
+      if (
+        e.key === "F1" ||
+        (e.ctrlKey && !e.altKey && e.key === "/") ||
+        (!e.ctrlKey && !e.altKey && e.key === "?" && !editable)
+      ) {
         e.preventDefault();
-        setAtual(MODULOS[n - 1].id);
+        setPaletteOpen(false);
+        setHelpOpen((v) => !v);
+        return;
+      }
+
+      // Escape: fecha modais ou tira foco do campo de texto ativo
+      if (e.key === "Escape") {
+        if (paletteOpen) {
+          e.preventDefault();
+          setPaletteOpen(false);
+          return;
+        }
+        if (helpOpen) {
+          e.preventDefault();
+          setHelpOpen(false);
+          return;
+        }
+        if (editable && document.activeElement instanceof HTMLElement) {
+          e.preventDefault();
+          document.activeElement.blur();
+          return;
+        }
+      }
+
+      // Alternar Tema: Alt+T ou Ctrl+Shift+L
+      if ((e.altKey && !e.ctrlKey && !e.shiftKey && key === "t") || (e.ctrlKey && e.shiftKey && !e.altKey && key === "l")) {
+        e.preventDefault();
+        toggleTheme();
+        return;
+      }
+
+      // Recolher/Expandir Sidebar: Ctrl+B
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && key === "b") {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
+
+      // Se um modal estiver aberto, não navega entre abas por trás
+      if (paletteOpen || helpOpen) return;
+
+      // Navegação circular entre abas: Ctrl+Tab / Ctrl+Shift+Tab ou Alt+Setas
+      if (e.ctrlKey && !e.altKey && e.key === "Tab") {
+        e.preventDefault();
+        if (e.shiftKey) prevTab();
+        else nextTab();
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+        if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+          e.preventDefault();
+          nextTab();
+          return;
+        }
+        if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+          e.preventDefault();
+          prevTab();
+          return;
+        }
+        if (key === "h") {
+          e.preventDefault();
+          setAtual("inicio");
+          return;
+        }
+        if (key === "i") {
+          e.preventDefault();
+          setAtual("about");
+          return;
+        }
+      }
+
+      // Salto direto: Ctrl+0..9
+      if (e.ctrlKey && !e.altKey && !e.shiftKey) {
+        if (e.key === "0") {
+          e.preventDefault();
+          setAtual("inicio");
+          return;
+        }
+        const n = Number(e.key);
+        if (n >= 1 && n <= 9 && MODULOS[n - 1]) {
+          e.preventDefault();
+          setAtual(MODULOS[n - 1].id);
+        }
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [paletteOpen, helpOpen, toggleTheme, toggleSidebar, nextTab, prevTab]);
 
   const totalAtivos = Object.values(statusMap).filter(Boolean).length;
 
   return (
+    <ShortcutProvider disabled={paletteOpen || helpOpen}>
     <div className="flex h-screen w-screen overflow-hidden bg-[#f4f5f8] dark:bg-[#09090b] text-slate-800 dark:text-zinc-200 antialiased select-none font-sans flex-col">
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar Técnica Industrial */}
-        <aside className="w-[224px] shrink-0 bg-white dark:bg-[#0e0e11] border-r border-slate-200 dark:border-zinc-800 flex flex-col justify-between">
+        <aside
+          className={`${
+            sidebarCollapsed ? "w-[54px]" : "w-[224px]"
+          } shrink-0 bg-white dark:bg-[#0e0e11] border-r border-slate-200 dark:border-zinc-800 flex flex-col justify-between transition-[width] duration-150`}
+        >
           <div className="flex flex-col min-h-0">
             {/* Header da Barra Lateral */}
-            <div className="px-3.5 py-3 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded border border-slate-400 dark:border-zinc-700 bg-slate-900 dark:bg-zinc-100 flex items-center justify-center text-white dark:text-slate-900">
-                  <Terminal className="w-3 h-3" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold tracking-tight text-slate-900 dark:text-zinc-100 leading-none">
-                    PCP CENTRAL
+            <div
+              className={`${
+                sidebarCollapsed ? "px-2 py-2.5 justify-center" : "px-3 py-3 justify-between"
+              } border-b border-slate-200 dark:border-zinc-800 flex items-center`}
+            >
+              {!sidebarCollapsed && (
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-5 h-5 shrink-0 rounded border border-slate-400 dark:border-zinc-700 bg-slate-900 dark:bg-zinc-100 flex items-center justify-center text-white dark:text-slate-900">
+                    <Terminal className="w-3 h-3" />
                   </div>
-                  <div className="text-[9px] font-mono text-slate-500 dark:text-zinc-500 tracking-wider">
-                    SUBLIMAÇÃO // RIP
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold tracking-tight text-slate-900 dark:text-zinc-100 leading-none truncate">
+                      PCP CENTRAL
+                    </div>
+                    <div className="text-[9px] font-mono text-slate-500 dark:text-zinc-500 tracking-wider truncate">
+                      SUBLIMAÇÃO // RIP
+                    </div>
                   </div>
                 </div>
-              </div>
-              <span className="text-[9px] font-mono font-semibold px-1 py-0.5 rounded border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400">
-                v2.0
-              </span>
+              )}
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="p-1 rounded text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+                title={sidebarCollapsed ? "Expandir barra lateral (Ctrl+B)" : "Recolher barra lateral (Ctrl+B)"}
+              >
+                {sidebarCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+              </button>
             </div>
 
             {/* Navegação */}
-            <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+            <nav className={`flex-1 overflow-y-auto ${sidebarCollapsed ? "p-1.5" : "p-2"} space-y-0.5`}>
               <button
                 onClick={() => setAtual("inicio")}
-                className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs font-medium cursor-pointer transition-colors ${
+                title="Centro de Comando (Ctrl+0)"
+                className={`w-full flex items-center ${
+                  sidebarCollapsed ? "justify-center px-0 py-2" : "justify-between px-2.5 py-1.5"
+                } rounded text-xs font-medium cursor-pointer transition-colors ${
                   atual === "inicio"
                     ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 shadow-2xs font-semibold"
                     : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/60"
@@ -279,26 +422,30 @@ export default function App() {
                 <span className="flex items-center gap-2 truncate">
                   <ModuleIcon
                     id="inicio"
-                    className={`w-3.5 h-3.5 ${
+                    className={`w-3.5 h-3.5 shrink-0 ${
                       atual === "inicio"
                         ? "text-white dark:text-slate-900"
                         : "text-slate-400 dark:text-zinc-500"
                     }`}
                   />
-                  <span>Centro de Comando</span>
+                  {!sidebarCollapsed && <span>Centro de Comando</span>}
                 </span>
-                <kbd className={`text-[9px] font-mono px-1 rounded ${
-                  atual === "inicio" ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
-                }`}>^0</kbd>
+                {!sidebarCollapsed && (
+                  <kbd className={`text-[9px] font-mono px-1 rounded ${
+                    atual === "inicio" ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
+                  }`}>^0</kbd>
+                )}
               </button>
 
               {GRUPOS.map((grupo) => {
                 const itens = MODULOS.filter((m) => m.grupo === grupo);
                 return (
-                  <div key={grupo} className="pt-3">
-                    <div className="px-2.5 pb-1 text-[9px] font-mono font-semibold tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
-                      {grupo}
-                    </div>
+                  <div key={grupo} className={sidebarCollapsed ? "pt-2 mt-1 border-t border-slate-100 dark:border-zinc-800/70" : "pt-3"}>
+                    {!sidebarCollapsed && (
+                      <div className="px-2.5 pb-1 text-[9px] font-mono font-semibold tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                        {grupo}
+                      </div>
+                    )}
                     <div className="space-y-0.5">
                       {itens.map((m) => {
                         const st = statusMap[m.id];
@@ -308,7 +455,10 @@ export default function App() {
                           <button
                             key={m.id}
                             onClick={() => setAtual(m.id)}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-xs cursor-pointer transition-colors ${
+                            title={`${m.nome} (${m.codigo}) — Ctrl+${idx}${st ? ` • ${st.text}` : ""}`}
+                            className={`relative w-full flex items-center ${
+                              sidebarCollapsed ? "justify-center px-0 py-2" : "justify-between px-2.5 py-1.5"
+                            } rounded text-xs cursor-pointer transition-colors ${
                               active
                                 ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 font-semibold shadow-2xs"
                                 : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/60 font-medium"
@@ -323,23 +473,33 @@ export default function App() {
                                     : "text-slate-400 dark:text-zinc-500"
                                 }`}
                               />
-                              <span className="truncate">{m.nome}</span>
+                              {!sidebarCollapsed && <span className="truncate">{m.nome}</span>}
                             </span>
-                            <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                              {st && (
+                            {sidebarCollapsed ? (
+                              st && (
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full ${
+                                  className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
                                     st.cor === "amber" ? "bg-amber-500" : "bg-emerald-500"
                                   } animate-pulse`}
-                                  title={st.text}
                                 />
-                              )}
-                              <kbd className={`text-[9px] font-mono px-0.5 rounded ${
-                                active ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
-                              }`}>
-                                ^{idx}
-                              </kbd>
-                            </div>
+                              )
+                            ) : (
+                              <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                {st && (
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full ${
+                                      st.cor === "amber" ? "bg-amber-500" : "bg-emerald-500"
+                                    } animate-pulse`}
+                                    title={st.text}
+                                  />
+                                )}
+                                <kbd className={`text-[9px] font-mono px-0.5 rounded ${
+                                  active ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
+                                }`}>
+                                  ^{idx}
+                                </kbd>
+                              </div>
+                            )}
                           </button>
                         );
                       })}
@@ -351,26 +511,40 @@ export default function App() {
           </div>
 
           {/* Rodapé da Sidebar */}
-          <div className="p-2 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+          <div
+            className={`p-2 border-t border-slate-200 dark:border-zinc-800 flex ${
+              sidebarCollapsed ? "flex-col items-center gap-1" : "items-center justify-between gap-1"
+            } text-xs`}
+          >
             <button
-              onClick={() => setDark((d) => !d)}
-              className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
-              title="Alternar Modo Claro / Escuro"
+              onClick={toggleTheme}
+              className={`flex items-center ${
+                sidebarCollapsed ? "justify-center p-1.5 w-full" : "gap-1.5 px-2 py-1"
+              } rounded text-[11px] font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors`}
+              title="Alternar Modo Claro / Escuro (Alt+T)"
             >
               {dark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-slate-500" />}
-              <span>{dark ? "Claro" : "Escuro"}</span>
+              {!sidebarCollapsed && (
+                <>
+                  <span>{dark ? "Claro" : "Escuro"}</span>
+                  <kbd className="text-[9px] font-mono text-slate-400 dark:text-zinc-500">Alt+T</kbd>
+                </>
+              )}
             </button>
 
             <button
               onClick={() => setAtual("about")}
-              className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors ${
+              className={`flex items-center ${
+                sidebarCollapsed ? "justify-center p-1.5 w-full" : "gap-1 px-2 py-1"
+              } rounded text-[11px] font-medium cursor-pointer transition-colors ${
                 atual === "about"
                   ? "bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-white"
                   : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
               }`}
+              title="Especificações do Sistema (Alt+I)"
             >
               <Info className="w-3.5 h-3.5" />
-              <span>Specs</span>
+              {!sidebarCollapsed && <span>Specs</span>}
             </button>
           </div>
         </aside>
@@ -426,11 +600,48 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span>ATALHOS: [Ctrl+0..9]</span>
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="hover:text-slate-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
+            title="Abrir Paleta de Comandos (Ctrl+K)"
+          >
+            [Ctrl+K] COMANDOS
+          </button>
           <span className="text-slate-300 dark:text-zinc-700">|</span>
-          <span className="text-slate-600 dark:text-zinc-400">PCP_KERNEL_RUST_OK</span>
+          <span>[Alt+←/→] ABAS</span>
+          <span className="text-slate-300 dark:text-zinc-700">|</span>
+          <span>[Ctrl+B] SIDEBAR</span>
+          <span className="text-slate-300 dark:text-zinc-700">|</span>
+          <span>[Alt+T] TEMA</span>
+          <span className="text-slate-300 dark:text-zinc-700">|</span>
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="flex items-center gap-1 hover:text-slate-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
+            title="Abrir Guia Completo de Atalhos (F1 ou ?)"
+          >
+            <Keyboard className="w-3 h-3" />
+            <span>[F1] ATALHOS</span>
+          </button>
         </div>
       </footer>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        atual={atual}
+        dark={dark}
+        sidebarCollapsed={sidebarCollapsed}
+        onNavigate={setAtual}
+        onToggleTheme={toggleTheme}
+        onToggleSidebar={toggleSidebar}
+        onNextTab={nextTab}
+        onPrevTab={prevTab}
+        onOpenHelp={() => setHelpOpen(true)}
+      />
+      <ShortcutsModal open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
+    </ShortcutProvider>
   );
 }

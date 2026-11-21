@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -12,6 +12,7 @@ import {
   Square,
 } from "lucide-react";
 import { PageHeader, StatCard, StatusBadge, SurfaceCard } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface ConsumoItem {
   nome: string;
@@ -44,6 +45,7 @@ export function ConsumoPage() {
   const [selecionados, setSelecionados] = useState<Set<string>>(() => new Set());
   const [busca, setBusca] = useState("");
   const [erro, setErro] = useState<string | null>(null);
+  const buscaRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     invoke<string>("consumo_get_pasta").then((p) => {
@@ -113,6 +115,13 @@ export function ConsumoPage() {
       setErro(String(e));
     }
   };
+
+  usePageShortcuts([
+    { id: "cons-toggle", combo: "ctrl+enter", keys: "Ctrl+Enter", label: monitorando ? "Parar Observação" : "Iniciar Observação", action: alternarMonitor },
+    { id: "cons-folder", combo: "ctrl+o", keys: "Ctrl+O", label: "Selecionar Pasta de TIFFs", action: selecionarPasta },
+    { id: "cons-refresh", combo: "ctrl+r", keys: "Ctrl+R", label: "Atualizar Análise Agora", action: () => atualizarAgora() },
+    { id: "cons-search", combo: "ctrl+f", keys: "Ctrl+F", label: "Focar Filtro de Arquivos", action: () => { buscaRef.current?.focus(); buscaRef.current?.select(); } },
+  ]);
 
   const atualizarAgora = async () => {
     if (!pasta.trim()) return;
@@ -383,10 +392,11 @@ export function ConsumoPage() {
           <div className="relative flex items-center">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5" />
             <input
+              ref={buscaRef}
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="FILTRAR LOTE..."
+              placeholder="FILTRAR LOTE... (Ctrl+F)"
               className="w-56 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 pl-8 pr-2.5 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
             />
           </div>

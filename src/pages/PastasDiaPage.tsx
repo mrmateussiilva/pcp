@@ -13,6 +13,7 @@ import {
   Save,
 } from "lucide-react";
 import { PageHeader, SurfaceCard } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface AppConfig {
   base: string;
@@ -146,6 +147,16 @@ export function PastasDiaPage() {
       setCriando(false);
     }
   };
+
+  usePageShortcuts([
+    { id: "pastas-criar", combo: "ctrl+enter", keys: "Ctrl+Enter", label: "Criar Pastas do Dia", action: criarPastas },
+    { id: "pastas-refresh", combo: "ctrl+r", keys: "Ctrl+R", label: "Atualizar Status das Pastas", action: () => atualizarLista(dia) },
+    { id: "pastas-base", combo: "ctrl+o", keys: "Ctrl+O", label: "Selecionar Pasta Base", action: selecionarBase },
+    { id: "pastas-save", combo: "ctrl+s", keys: "Ctrl+S", label: "Salvar Configuração", action: salvarConfig },
+    { id: "pastas-prev", combo: "[", keys: "[", label: "Dia Anterior", action: () => mudarDia(-1), allowInInput: false },
+    { id: "pastas-next", combo: "]", keys: "]", label: "Próximo Dia", action: () => mudarDia(1), allowInInput: false },
+    { id: "pastas-hoje", combo: "alt+d", keys: "Alt+D", label: "Ir para Hoje", action: () => setDia(new Date()) },
+  ]);
 
   return (
     <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">

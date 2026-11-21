@@ -2,6 +2,7 @@ import { ChevronRight, HardDrive, Server } from "lucide-react";
 import { ModuleIcon, StatusInfo } from "../App";
 import { MODULOS, ModuloId } from "../modules/registry";
 import { SurfaceCard } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface HomePageProps {
   onAbrir: (id: ModuloId) => void;
@@ -10,6 +11,16 @@ interface HomePageProps {
 }
 
 export function HomePage({ onAbrir, statusMap, driveBase }: HomePageProps) {
+  usePageShortcuts([
+    ...MODULOS.map((m, idx) => ({
+      id: `home-open-${m.id}`,
+      combo: String(idx + 1),
+      keys: String(idx + 1),
+      label: `Abrir ${m.nome}`,
+      action: () => onAbrir(m.id),
+      allowInInput: false,
+    })),
+  ]);
   const agora = new Date();
   const dataFormatada = agora.toLocaleDateString("pt-BR", {
     weekday: "long",
@@ -77,7 +88,15 @@ export function HomePage({ onAbrir, statusMap, driveBase }: HomePageProps) {
                   return (
                     <div
                       key={m.id}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => onAbrir(m.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onAbrir(m.id);
+                        }
+                      }}
                       className="group px-4 py-3 flex items-center justify-between gap-4 hover:bg-slate-50/80 dark:hover:bg-zinc-800/30 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-3.5 min-w-0">

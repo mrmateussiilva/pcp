@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Eye, EyeOff, MessageSquare, Play, Search, Square, Trash2 } from "lucide-react";
 import { PageHeader, StatusBadge, SurfaceCard } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface WhatsappConfig {
   porta: number;
@@ -37,6 +38,7 @@ export function WhatsappPage() {
   const [erro, setErro] = useState<string | null>(null);
 
   const feedRef = useRef<HTMLDivElement | null>(null);
+  const buscaRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     invoke<WhatsappConfig>("whatsapp_get_config").then((cfg) => {
@@ -103,6 +105,12 @@ export function WhatsappPage() {
     setMensagens([]);
     setFiltroGrupo(TODOS);
   };
+
+  usePageShortcuts([
+    { id: "zap-toggle", combo: "ctrl+enter", keys: "Ctrl+Enter", label: status.rodando ? "Parar Webhook WhatsApp" : "Iniciar Webhook WhatsApp", action: alternar },
+    { id: "zap-search", combo: "ctrl+f", keys: "Ctrl+F", label: "Focar Filtro de Mensagens", action: () => { buscaRef.current?.focus(); buscaRef.current?.select(); } },
+    { id: "zap-clear", combo: "ctrl+l", keys: "Ctrl+L", label: "Limpar Histórico de Mensagens", action: limpar },
+  ]);
 
   const contagemGrupos = useMemo(() => {
     const map = new Map<string, number>();
@@ -265,10 +273,11 @@ export function WhatsappPage() {
               <div className="relative flex items-center">
                 <Search className="w-3 h-3 text-slate-400 absolute left-2" />
                 <input
+                  ref={buscaRef}
                   type="text"
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  placeholder="FILTRAR FEED..."
+                  placeholder="FILTRAR FEED... (Ctrl+F)"
                   className="w-48 rounded border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 pl-7 pr-2 py-1 font-mono text-xs text-slate-900 dark:text-white focus:outline-none focus:border-blue-500"
                 />
               </div>

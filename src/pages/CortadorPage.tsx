@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, Scissors } from "lucide-react";
 import { PageHeader, StatusBadge, SurfaceCard, TerminalLog } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 const CORES = ["Preto", "Azul", "Rosa", "Roxo", "Vermelho", "Verde"];
 
@@ -178,6 +179,13 @@ export function CortadorPage() {
       setErro(String(e));
     }
   };
+
+  usePageShortcuts([
+    { id: "cut-run", combo: "ctrl+enter", keys: "Ctrl+Enter", label: `Executar Corte (${modo})`, action: () => { if (!rodando) executar(); } },
+    { id: "cut-mode1", combo: "alt+1", keys: "Alt+1", label: "Modo Automático", action: () => setModo("Automático") },
+    { id: "cut-mode2", combo: "alt+2", keys: "Alt+2", label: "Modo Medidas Personalizadas", action: () => setModo("Medidas personalizadas") },
+    { id: "cut-clear", combo: "ctrl+l", keys: "Ctrl+L", label: "Limpar Logs", action: () => setLogs([]) },
+  ]);
 
   return (
     <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">

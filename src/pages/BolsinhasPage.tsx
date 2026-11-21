@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, Play, Search, ShoppingBag, Square, Trash2 } from "lucide-react";
 import { PageHeader, StatCard, StatusBadge, SurfaceCard, TerminalLog } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface BolsinhasOpcoes {
   pasta: string;
@@ -113,6 +114,13 @@ export function BolsinhasPage() {
       setErro(String(e));
     }
   };
+
+  usePageShortcuts([
+    { id: "bol-toggle", combo: "ctrl+enter", keys: "Ctrl+Enter", label: status.monitorando ? "Parar Monitoramento" : "Iniciar Monitoramento", action: alternar },
+    { id: "bol-folder", combo: "ctrl+o", keys: "Ctrl+O", label: "Selecionar Pasta PARA FAZER", action: selecionarPasta },
+    { id: "bol-scan", combo: "ctrl+r", keys: "Ctrl+R", label: "Varrer Duplicadas (Simular)", action: () => executarVarredura(false) },
+    { id: "bol-clear", combo: "ctrl+l", keys: "Ctrl+L", label: "Limpar Logs", action: () => setLogs([]) },
+  ]);
 
   return (
     <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">

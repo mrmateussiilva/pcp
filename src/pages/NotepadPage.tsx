@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Check, Copy, FileText, FolderOpen, Play, Square, Trash2 } from "lucide-react";
 import { PageHeader, StatusBadge, SurfaceCard } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface NotepadConfig {
   arquivo: string;
@@ -136,6 +137,12 @@ export function NotepadPage() {
     setCopiado(true);
     setTimeout(() => setCopiado(false), 1800);
   };
+
+  usePageShortcuts([
+    { id: "note-toggle", combo: "ctrl+enter", keys: "Ctrl+Enter", label: status.rodando ? "Parar Servidor Notepad" : "Iniciar Servidor Notepad", action: alternarServidor },
+    { id: "note-file", combo: "ctrl+o", keys: "Ctrl+O", label: "Selecionar Arquivo JSON", action: selecionarArquivo },
+    { id: "note-copy", combo: "ctrl+shift+c", keys: "Ctrl+Shift+C", label: "Copiar Link da Rede", action: copiarLink },
+  ]);
 
   const formatarHora = (iso: string | null) => {
     if (!iso) return "—";

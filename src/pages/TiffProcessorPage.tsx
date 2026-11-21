@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, Play, Printer, Square } from "lucide-react";
 import { PageHeader, StatCard, StatusBadge, SurfaceCard, TerminalLog } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface TiffCounters {
   ok: number;
@@ -102,6 +103,14 @@ export function TiffProcessorPage() {
     setAddName(v);
     await invoke("tiff_set_add_name", { addName: v });
   };
+
+  usePageShortcuts([
+    { id: "tiff-toggle", combo: "ctrl+enter", keys: "Ctrl+Enter", label: monitorando ? "Parar Monitoramento TIFF" : "Iniciar Monitoramento TIFF", action: alternar },
+    { id: "tiff-folder", combo: "ctrl+o", keys: "Ctrl+O", label: "Selecionar Pasta de Entrada", action: selecionarPasta },
+    { id: "tiff-clear", combo: "ctrl+l", keys: "Ctrl+L", label: "Limpar Terminal de Logs", action: () => setLogs([]) },
+    { id: "tiff-tab1", combo: "alt+1", keys: "Alt+1", label: "Aba Monitor / Logs", action: () => setAba("monitor") },
+    { id: "tiff-tab2", combo: "alt+2", keys: "Alt+2", label: "Aba Grid de Inspeção", action: () => setAba("grid") },
+  ]);
 
   return (
     <div className="p-5 h-full flex flex-col gap-3.5 max-w-7xl mx-auto">

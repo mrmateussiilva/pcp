@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { FolderOpen, PackageCheck, Play, RefreshCw, Square, Zap } from "lucide-react";
 import { PageHeader, StatCard, StatusBadge, SurfaceCard, TerminalLog } from "../components/ui";
+import { usePageShortcuts } from "../hooks/useShortcuts";
 
 interface ShopeeOpcoes {
   pasta: string;
@@ -111,6 +112,13 @@ export function ShopeePage() {
       setErro(String(e));
     }
   };
+
+  usePageShortcuts([
+    { id: "shopee-toggle", combo: "ctrl+enter", keys: "Ctrl+Enter", label: status.monitorando ? "Parar Monitoramento Shopee" : "Iniciar Monitoramento Shopee", action: alternarMonitor },
+    { id: "shopee-once", combo: "ctrl+r", keys: "Ctrl+R", label: "Executar Uma Vez", action: () => executarUmaVez() },
+    { id: "shopee-folder", combo: "ctrl+o", keys: "Ctrl+O", label: "Selecionar Pasta de Fichas", action: selecionarPasta },
+    { id: "shopee-clear", combo: "ctrl+l", keys: "Ctrl+L", label: "Limpar Logs", action: () => setLogs([]) },
+  ]);
 
   const executarUmaVez = async () => {
     setErro(null);
