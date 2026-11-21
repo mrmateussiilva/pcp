@@ -8,13 +8,17 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
+#[cfg(windows)]
 use windows::core::HSTRING;
+#[cfg(windows)]
 use windows::Data::Pdf::{PdfDocument, PdfPageRenderOptions};
+#[cfg(windows)]
 use windows::Storage::Streams::{DataReader, InMemoryRandomAccessStream};
+#[cfg(windows)]
 use windows::Storage::StorageFile;
 
 const PASTA_SAIDA: &str = "PRONTOS";
@@ -174,8 +178,11 @@ impl ShopeeService {
     }
 }
 
+static RE_PDF: OnceLock<Regex> = OnceLock::new();
+static RE_IMG: OnceLock<Regex> = OnceLock::new();
+
 fn chave_pdf(arq: &Path) -> Option<NaiveDateTime> {
-    let re = Regex::new(r"^(\d{2})(\d{2})(\d{4})(\d{2})(\d{2})$").ok()?;
+    let re = RE_PDF.get_or_init(|| Regex::new(r"^(\d{2})(\d{2})(\d{4})(\d{2})(\d{2})$").unwrap());
     let stem = arq.file_stem()?.to_str()?;
     let caps = re.captures(stem)?;
     let d: u32 = caps[1].parse().ok()?;
@@ -187,7 +194,7 @@ fn chave_pdf(arq: &Path) -> Option<NaiveDateTime> {
 }
 
 fn chave_img(arq: &Path) -> Option<NaiveDateTime> {
-    let re = Regex::new(r"(\d{4})-(\d{2})-(\d{2}) at (\d{2})\.(\d{2})\.(\d{2})").ok()?;
+    let re = RE_IMG.get_or_init(|| Regex::new(r"(\d{4})-(\d{2})-(\d{2}) at (\d{2})\.(\d{2})\.(\d{2})").unwrap());
     let stem = arq.file_stem()?.to_str()?;
     let caps = re.captures(stem)?;
     let y: i32 = caps[1].parse().ok()?;
@@ -309,7 +316,8 @@ fn salvar_registro(caminho: &Path, reg: &HashMap<String, Vec<String>>) {
     }
 }
 
-fn render_pdf_page_winrt(pdf_path: &Path, pagina_1based: u32, dpi: u32) -> Result<(RgbImage, f64, f64, String), String> {
+#[cfg(windows)]
+fn render_pdf_page(pdf_path: &Path, pagina_1based: u32, dpi: u32) -> Result<(RgbImage, f64, f64, String), String> {
     let abs_path = fs::canonicalize(pdf_path).unwrap_or_else(|_| pdf_path.to_path_buf());
     let path_str = abs_path.to_string_lossy();
     let clean_path = path_str.strip_prefix(r"\\?\").unwrap_or(&path_str);
@@ -382,6 +390,39 @@ fn render_pdf_page_winrt(pdf_path: &Path, pagina_1based: u32, dpi: u32) -> Resul
     Ok((rgb, w_pt, h_pt, aviso))
 }
 
+#[cfg(not(windows))]
+fn render_pdf_page(pdf_path: &Path, pagina_1based: u32, dpi: u32) -> Result<(RgbImage, f64, f64, String), String> {
+    use std::process::Command;
+
+    let pag = pagina_1based.max(1).to_string();
+    let dpi_str = dpi.to_string();
+    let out = Command::new("pdftoppm")
+        .args(["-png", "-r", &dpi_str, "-f", &pag, "-l", &pag])
+        .arg(pdf_path)
+        .output()
+        .map_err(|e| {
+            format!("Renderização de PDF no Linux requer 'pdftoppm' (poppler-utils): {e}")
+        })?;
+
+    if !out.status.success() || out.stdout.is_empty() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        return Err(format!(
+            "Erro ao renderizar página {pag} do PDF via pdftoppm: {}",
+            stderr.trim()
+        ));
+    }
+
+    let rgb = image::load_from_memory(&out.stdout)
+        .map_err(|e| format!("Erro ao decodificar PNG do pdftoppm: {e}"))?
+        .to_rgb8();
+
+    let (w, h) = rgb.dimensions();
+    let w_pt = (w as f64) * 72.0 / (dpi as f64);
+    let h_pt = (h as f64) * 72.0 / (dpi as f64);
+
+    Ok((rgb, w_pt, h_pt, String::new()))
+}
+
 fn fim_do_conteudo_px(img: &RgbImage) -> u32 {
     let (w, h) = img.dimensions();
     let raw = img.as_raw();
@@ -406,7 +447,7 @@ fn montar(
     opcoes: &ShopeeOpcoes,
 ) -> Result<String, String> {
     let (mut page_rgb, _w_pt, _h_pt, aviso) =
-        render_pdf_page_winrt(pdf, opcoes.pagina, opcoes.dpi)?;
+        render_pdf_page(pdf, opcoes.pagina, opcoes.dpi)?;
     let (pw, ph) = page_rgb.dimensions();
 
     let scale = opcoes.dpi as f64 / 72.0;
