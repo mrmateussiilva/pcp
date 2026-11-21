@@ -1,17 +1,18 @@
 # AGENTS.md — Guia para Agentes de Código (`pcp-tauri`)
 
-Este arquivo orienta agentes de IA que trabalham no repositório **`pcp-tauri/`** (migração do **PCP Central** para Rust + Tauri v2).
+Este arquivo orienta agentes de IA que trabalham no repositório **`pcp-tauri/`** (sistema **PCP Central** em Rust + Tauri v2).
 
 ---
 
 ## 1. Stack e Tecnologias
 
-- **Desktop Shell / IPC:** Tauri v2 (`tauri = "2"`, `tauri-plugin-dialog`, `tauri-plugin-notification`, `tauri-plugin-opener`)
+- **Desktop Shell / IPC:** Tauri v2 (`tauri = "2"`, `tauri-plugin-dialog`, `tauri-plugin-notification`, `tauri-plugin-opener`, `tauri-plugin-fs`)
 - **Backend (Rust):**
   - Async & HTTP/WebSocket: `tokio`, `axum` (com feature `ws`), `futures-util`
   - Serialização & Config: `serde`, `serde_json`, `chrono`, `csv`, `regex`, `dirs`
   - Imagem & Paralelismo: `tiff`, `image`, `fast_image_resize` (SIMD), `imageproc`, `ab_glyph`, `rayon`
   - Monitoramento de Arquivos: `notify`
+  - APIs Nativas Windows (condicional): `windows` sob `[target.'cfg(windows)'.dependencies]`
 - **Frontend:**
   - **React 19 + TypeScript + Vite**
   - **Tailwind CSS v4** (`@tailwindcss/vite` + `@custom-variant dark (&:where(.dark, .dark *));`)
@@ -24,10 +25,10 @@ Este arquivo orienta agentes de IA que trabalham no repositório **`pcp-tauri/`*
 ```text
 pcp-tauri/
 ├── src/
-│   ├── components/ui.tsx       # Primitivas compartilhadas (PageHeader, SurfaceCard, StatusBadge, StatCard, TerminalLog)
-│   ├── modules/registry.ts     # Metadados, grupos e atalhos dos módulos
-│   ├── pages/*.tsx             # Telas (uma por módulo + HomePage)
-│   └── App.tsx                 # Sidebar, tema Claro/Escuro, atalhos Ctrl+0..7 e listeners globais
+│   ├── components/ui.tsx       # Primitivas industriais (PageHeader, SurfaceCard, StatusBadge, StatCard, TerminalLog)
+│   ├── modules/registry.ts     # Metadados, códigos técnicos (RIP-01, CUT-03...), bancadas e atalhos
+│   ├── pages/*.tsx             # Telas técnicas (uma por módulo + HomePage Command Center)
+│   └── App.tsx                 # Sidebar 224px, barra de telemetria, tema Claro/Escuro, atalhos Ctrl+0..7
 └── src-tauri/
     ├── assets/notepad.html     # HTML servido na rede pelo Notepad (__WS_PORT__ injetado em runtime)
     └── src/
@@ -37,47 +38,70 @@ pcp-tauri/
 ```
 
 ### Regras do Projeto
+
 1. **Separação `core/` × `commands/`:** Toda regra de negócio, I/O de arquivos e processamento pesado deve ficar em `src-tauri/src/core/`. Os arquivos em `commands/` apenas expõem comandos Tauri e chamam `core/`.
 2. **Não bloquear a thread principal:** Operações pesadas (análise de pasta, corte de painéis, I/O em rede `Z:\`) devem rodar em `tokio::task::spawn_blocking` ou `std::thread::spawn` + eventos (`app.emit`).
 3. **Persistência atômica:** Arquivos JSON (`config.json`, `notes_state.json`) devem sempre ser gravados em `.json.tmp` seguido de `fs::rename` para evitar corrupção.
-4. **Processamento de imagem:**
-   - Use `core/imaging.rs` (`load_image_with_meta`, `save_image_with_meta`, `blit_rgb_fast`, `resize_rgb_simd`, `resize_rgba_simd`).
+4. **Processamento de imagem e performance Rust (obrigatório):**
+   - Use sempre as primitivas otimizadas de `core/imaging.rs`: `load_image_with_meta`, `save_image_with_meta`, `blit_rgb_fast`, `resize_rgb_simd`, `resize_rgba_simd`, `rotate90_rgb_fast`, `rotate270_rgb_fast` e `add_1px_black_border_inside_inplace`.
+   - **Evite clones de imagens grandes (300 DPI):** prefira operações *in-place* (`add_1px_black_border_inside_inplace`, `image::imageops::rotate180_in_place`) e alocação única do buffer de saída.
+   - **Rotação paralela:** nunca use `DynamicImage::rotate90()` ou `rotate270()` em imagens de produção; use `rotate90_rgb_fast` / `rotate270_rgb_fast` (tiling 64×64 com Rayon).
+   - **I/O em rede (`Z:\`):** mantenha escrita em buffer grande (`BufWriter::with_capacity(8 * 1024 * 1024)`) nos encoders TIFF.
    - **Nunca descarte DPI ou perfil ICC (`Tag::Unknown(34675)`)** ao salvar TIFFs de produção.
-5. **Tema e UI:**
-   - **Modo Claro é o padrão** (`slate-50` / `white`), com suporte a **Modo Escuro** via classes `dark:...` controladas por `.dark` no `<html>`.
-   - Reaproveite as primitivas de `src/components/ui.tsx` em novas telas.
-6. **Portas configuráveis:** Serviços de rede (Notepad HTTP/WS e WhatsApp Webhook) devem sempre ler/salvar suas portas em `config.json`.
-7. **Referência legada:** A pasta irmã `../hub/` (Python) é apenas referência histórica — **não a altere** salvo pedido explícito.
+   - **Regex & Watchers:** cacheie toda `Regex` em `OnceLock<Regex>` (nunca compile dentro de loops). Em watchers de pasta com `notify`, use `rx.recv_timeout(...)` no canal MPSC em vez de `thread::sleep` fixo para reação imediata (<10 ms).
+   - **Dev Profile:** mantenha `[profile.dev.package."*"] opt-level = 3` em `src-tauri/Cargo.toml` para que crates de imagem/compressão rodem em velocidade de release durante o desenvolvimento.
+5. **Compatibilidade Multiplataforma (Linux + Windows):**
+   - O app é desenvolvido em Linux e distribuído para Windows.
+   - Crates específicos de SO (ex.: `windows`) **devem** ficar em `[target.'cfg(windows)'.dependencies]` no `Cargo.toml` e protegidos por `#[cfg(windows)]` no código Rust, oferecendo fallback funcional em Linux (ex.: `pdftoppm` em `core/shopee.rs`).
+6. **Identidade Visual & Padrões de UI (Workstation Industrial / RIP):**
+   - **Proibido estética genérica de SaaS/IA ("estilo Lovable"):** não use cards `rounded-2xl` pastel, arco-íris de cores, degradês decorativos ou emojis em KPIs/títulos de cards.
+   - **Alta densidade técnica:** use `font-mono` e `tabular-nums` para medidas, dimensões, DPI, contadores, portas e timestamps.
+   - **Identificadores padronizados:** todo módulo deve possuir código técnico (`PRE-00`, `RIP-01`, `BAGS-02`, `CUT-03`, `LOG-04`, `CALC-05`, `CAL-06`, `NOTE-01`, `WPP-02`) e badge de modo (`WATCHER`, `BATCH`, `CALC`, `SERVICE`) registrados em `src/modules/registry.ts`.
+   - **Modo Claro é o padrão** (`slate-50` / `white`), com suporte a **Modo Escuro** técnico via classes `dark:...` controladas por `.dark` no `<html>`.
+   - Reaproveite sempre as primitivas de `src/components/ui.tsx` (`PageHeader`, `SurfaceCard`, `StatusBadge`, `StatCard`, `TerminalLog`).
+7. **Portas configuráveis:** Serviços de rede (Notepad HTTP/WS e WhatsApp Webhook) devem sempre ler/salvar suas portas em `config.json`.
+8. **Referência legada:** A pasta irmã `../hub/` (Python) é apenas referência histórica — **não a altere** salvo pedido explícito.
 
 ---
 
-## 3. Comandos de Verificação (Windows / PowerShell)
+## 3. Comandos de Verificação
 
+### Linux
+```bash
+# Build e type-check do frontend
+npm run build
+
+# Verificação do backend Rust (0 erros, 0 warnings)
+cd src-tauri && cargo check
+
+# Rodar aplicação em modo desenvolvimento
+npm run tauri dev
+```
+
+### Windows (PowerShell)
 > **Atenção no Windows:** se a ExecutionPolicy do PowerShell bloquear `npm.ps1`, use **`npm.cmd`**.
 
 ```powershell
 # Build e type-check do frontend
-cd pcp-tauri
 npm.cmd run build
 
-# Verificação do backend Rust (sem warnings)
-cd pcp-tauri\src-tauri
+# Verificação do backend Rust (0 erros, 0 warnings)
+cd src-tauri
 cargo check
 
 # Rodar aplicação em modo desenvolvimento
-cd pcp-tauri
 npm.cmd run tauri dev
 ```
 
-Sempre rode `npm.cmd run build` (após mudanças em `src/`) e `cargo check` (após mudanças em `src-tauri/`) antes de concluir uma tarefa.
+Sempre rode `npm run build` / `npm.cmd run build` (após mudanças em `src/`) e `cargo check` (após mudanças em `src-tauri/`) antes de concluir uma tarefa.
 
 ---
 
 ## 4. Padrão de Commits
 
-Use **Conventional Commits** em inglês ou português claro:
+Use **Conventional Commits** em inglês ou português claro, separando commits por responsabilidade lógica:
 - `feat(escopo): ...` — nova funcionalidade ou módulo
-- `fix(escopo): ...` — correção de bug
+- `fix(escopo): ...` — correção de bug ou compatibilidade
 - `perf(escopo): ...` — melhoria de performance
 - `style(escopo): ...` — ajustes visuais / Tailwind
 - `refactor(escopo): ...` — refatoração sem mudança de comportamento
