@@ -415,6 +415,7 @@ fn watch_loop(
             ultima_lista_sig = nova_sig;
         }
 
-        thread::sleep(Duration::from_secs(2));
+        // Aguarda evento do notify reativamente; se não houver evento por 2s, acorda para verificação periódica
+        let _ = rx.recv_timeout(Duration::from_secs(2));
     }
 }

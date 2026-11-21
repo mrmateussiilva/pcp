@@ -1,5 +1,5 @@
 use crate::core::imaging::{load_image_with_meta, resize_rgb_simd, DPI_FALLBACK};
-use image::{DynamicImage, GenericImageView, ImageFormat};
+use image::{DynamicImage, GenericImageView, ImageFormat, RgbImage};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -214,9 +214,7 @@ fn buscar_bolsinha_existente(refs: &[PathBuf], stem: &str) -> Option<PathBuf> {
     None
 }
 
-fn comparar_miniaturas(img_a: &DynamicImage, img_b: &DynamicImage) -> bool {
-    let a = resize_rgb_simd(&img_a.to_rgb8(), LADO_MINIATURA, LADO_MINIATURA);
-    let b = resize_rgb_simd(&img_b.to_rgb8(), LADO_MINIATURA, LADO_MINIATURA);
+fn comparar_miniaturas_prontas(a: &RgbImage, b: &RgbImage) -> bool {
     let mut max_diff = 0u8;
     for (pa, pb) in a.pixels().zip(b.pixels()) {
         for c in 0..3 {
@@ -230,6 +228,12 @@ fn comparar_miniaturas(img_a: &DynamicImage, img_b: &DynamicImage) -> bool {
         }
     }
     true
+}
+
+fn comparar_miniaturas(img_a: &DynamicImage, img_b: &DynamicImage) -> bool {
+    let a = resize_rgb_simd(&img_a.to_rgb8(), LADO_MINIATURA, LADO_MINIATURA);
+    let b = resize_rgb_simd(&img_b.to_rgb8(), LADO_MINIATURA, LADO_MINIATURA);
+    comparar_miniaturas_prontas(&a, &b)
 }
 
 fn monitor_loop(
@@ -408,12 +412,12 @@ fn executar_varredura(app: &AppHandle, pasta: &Path, mover: bool) {
     }
     jpegs.sort();
 
-    let thumbs: Vec<(PathBuf, DynamicImage)> = jpegs
+    let thumbs: Vec<(PathBuf, RgbImage)> = jpegs
         .par_iter()
         .filter_map(|p| {
             image::open(p)
                 .ok()
-                .map(|img| (p.clone(), img.thumbnail(LADO_MINIATURA, LADO_MINIATURA)))
+                .map(|img| (p.clone(), resize_rgb_simd(&img.to_rgb8(), LADO_MINIATURA, LADO_MINIATURA)))
         })
         .collect();
 
@@ -428,7 +432,7 @@ fn executar_varredura(app: &AppHandle, pasta: &Path, mover: bool) {
             if ja_marcadas.contains(&j) {
                 continue;
             }
-            if comparar_miniaturas(&thumbs[i].1, &thumbs[j].1) {
+            if comparar_miniaturas_prontas(&thumbs[i].1, &thumbs[j].1) {
                 ja_marcadas.insert(j);
                 duplicadas.push((thumbs[i].0.clone(), thumbs[j].0.clone()));
             }

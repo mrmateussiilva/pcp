@@ -2,8 +2,9 @@ use ab_glyph::{Font, FontRef, PxScale, ScaleFont};
 use fast_image_resize as fr;
 use image::{DynamicImage, GrayImage, ImageFormat, Rgb, RgbImage, Rgba, RgbaImage};
 use imageproc::drawing::draw_text_mut;
+use rayon::prelude::*;
 use std::fs::{self, File};
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 use std::path::Path;
 use std::sync::OnceLock;
 use std::thread;
@@ -124,17 +125,20 @@ fn decode_tiff_single_open(
             GrayImage::from_raw(w, h, buf).map(DynamicImage::ImageLuma8)
         }
         (Some(ColorType::CMYK(8)), Ok(DecodingResult::U8(buf))) => {
-            let mut rgb = Vec::with_capacity((w as usize) * (h as usize) * 3);
-            for chunk in buf.chunks_exact(4) {
-                let c = chunk[0] as u32;
-                let m = chunk[1] as u32;
-                let y = chunk[2] as u32;
-                let k = chunk[3] as u32;
-                let inv_k = 255 - k;
-                rgb.push((((255 - c) * inv_k) / 255) as u8);
-                rgb.push((((255 - m) * inv_k) / 255) as u8);
-                rgb.push((((255 - y) * inv_k) / 255) as u8);
-            }
+            let total_pixels = (w as usize) * (h as usize);
+            let mut rgb = vec![0u8; total_pixels * 3];
+            rgb.par_chunks_exact_mut(3)
+                .zip(buf.par_chunks_exact(4))
+                .for_each(|(out, chunk)| {
+                    let c = chunk[0] as u32;
+                    let m = chunk[1] as u32;
+                    let y = chunk[2] as u32;
+                    let k = chunk[3] as u32;
+                    let inv_k = 255 - k;
+                    out[0] = (((255 - c) * inv_k) / 255) as u8;
+                    out[1] = (((255 - m) * inv_k) / 255) as u8;
+                    out[2] = (((255 - y) * inv_k) / 255) as u8;
+                });
             RgbImage::from_raw(w, h, rgb).map(DynamicImage::ImageRgb8)
         }
         _ => None,
@@ -236,10 +240,14 @@ pub fn save_image_with_meta(
         .to_lowercase();
 
     if ext == "tif" || ext == "tiff" {
-        let rgb = img.to_rgb8();
+        let rgb = match img {
+            DynamicImage::ImageRgb8(r) => r.clone(),
+            other => other.to_rgb8(),
+        };
         let (w, h) = rgb.dimensions();
         let file = File::create(output_path).map_err(|e| format!("Erro ao criar arquivo: {e}"))?;
-        let mut encoder = TiffEncoder::new(file)
+        let buf_writer = BufWriter::with_capacity(8 * 1024 * 1024, file);
+        let mut encoder = TiffEncoder::new(buf_writer)
             .map_err(|e| format!("Erro ao iniciar encoder TIFF: {e}"))?;
         let mut image_enc = encoder
             .new_image_with_compression::<colortype::RGB8, _>(w, h, Lzw)
@@ -280,7 +288,7 @@ pub fn save_image_with_meta(
     }
 }
 
-/// Cópia rápida linha-a-linha de `src` para `dst` na posição `(ox, oy)`.
+/// Cópia rápida linha-a-linha paralela com Rayon de `src` para `dst` na posição `(ox, oy)`.
 pub fn blit_rgb_fast(dst: &mut RgbImage, src: &RgbImage, ox: u32, oy: u32) {
     let (dw, dh) = dst.dimensions();
     let (sw, sh) = src.dimensions();
@@ -293,13 +301,25 @@ pub fn blit_rgb_fast(dst: &mut RgbImage, src: &RgbImage, ox: u32, oy: u32) {
     let src_stride = sw as usize * 3;
     let row_bytes = copy_w * 3;
 
-    let dst_buf = dst.as_mut();
-    let src_buf = src.as_raw();
+    let dst_raw = dst.as_mut();
+    let src_raw = src.as_raw();
 
-    for y in 0..copy_h {
-        let d_off = (oy as usize + y) * dst_stride + (ox as usize) * 3;
-        let s_off = y * src_stride;
-        dst_buf[d_off..d_off + row_bytes].copy_from_slice(&src_buf[s_off..s_off + row_bytes]);
+    if copy_h >= 128 {
+        dst_raw
+            .par_chunks_exact_mut(dst_stride)
+            .skip(oy as usize)
+            .take(copy_h)
+            .zip(src_raw.par_chunks_exact(src_stride).take(copy_h))
+            .for_each(|(d_line, s_line)| {
+                let d_start = (ox as usize) * 3;
+                d_line[d_start..d_start + row_bytes].copy_from_slice(&s_line[..row_bytes]);
+            });
+    } else {
+        for y in 0..copy_h {
+            let d_off = (oy as usize + y) * dst_stride + (ox as usize) * 3;
+            let s_off = y * src_stride;
+            dst_raw[d_off..d_off + row_bytes].copy_from_slice(&src_raw[s_off..s_off + row_bytes]);
+        }
     }
 }
 
@@ -445,21 +465,26 @@ pub fn paste_rgba_onto_rgb(dst: &mut RgbImage, src: &RgbaImage, ox: i64, oy: i64
     }
 }
 
-pub fn add_1px_black_border_inside(img: &RgbImage) -> RgbImage {
+pub fn add_1px_black_border_inside_inplace(img: &mut RgbImage) {
     let (w, h) = img.dimensions();
-    let mut out = img.clone();
     if w == 0 || h == 0 {
-        return out;
+        return;
     }
     let black = Rgb([0, 0, 0]);
     for x in 0..w {
-        out.put_pixel(x, 0, black);
-        out.put_pixel(x, h - 1, black);
+        img.put_pixel(x, 0, black);
+        img.put_pixel(x, h - 1, black);
     }
     for y in 0..h {
-        out.put_pixel(0, y, black);
-        out.put_pixel(w - 1, y, black);
+        img.put_pixel(0, y, black);
+        img.put_pixel(w - 1, y, black);
     }
+}
+
+#[allow(dead_code)]
+pub fn add_1px_black_border_inside(img: &RgbImage) -> RgbImage {
+    let mut out = img.clone();
+    add_1px_black_border_inside_inplace(&mut out);
     out
 }
 
@@ -482,6 +507,100 @@ pub fn parse_hex_color(hex: &str) -> Rgb<u8> {
         "green" => Rgb([0, 128, 0]),
         _ => Rgb([0, 0, 0]),
     }
+}
+
+/// Rotação de 90 graus anti-horário (equivalente a rotate270()) paralela em blocos de 64x64.
+pub fn rotate270_rgb_fast(src: &RgbImage) -> RgbImage {
+    let (sw, sh) = src.dimensions();
+    let dw = sh;
+    let dh = sw;
+    let mut dst = RgbImage::new(dw, dh);
+
+    let src_stride = (sw as usize) * 3;
+    let dst_stride = (dw as usize) * 3;
+    let src_raw = src.as_raw();
+    let dst_raw = dst.as_mut();
+
+    const TILE: usize = 64;
+    let ty_count = ((sh as usize) + TILE - 1) / TILE;
+    let tx_count = ((sw as usize) + TILE - 1) / TILE;
+
+    (0..ty_count).into_par_iter().for_each(|ty_idx| {
+        let sy_start = ty_idx * TILE;
+        let sy_end = (sy_start + TILE).min(sh as usize);
+
+        for tx_idx in 0..tx_count {
+            let sx_start = tx_idx * TILE;
+            let sx_end = (sx_start + TILE).min(sw as usize);
+
+            for sy in sy_start..sy_end {
+                let s_row = sy * src_stride;
+                for sx in sx_start..sx_end {
+                    let s_off = s_row + sx * 3;
+                    // Em 270 anti-horário: (dx, dy) = (sy, sw - 1 - sx)
+                    let dx = sy;
+                    let dy = (sw as usize) - 1 - sx;
+                    let d_off = dy * dst_stride + dx * 3;
+
+                    unsafe {
+                        let dst_ptr = dst_raw.as_ptr() as *mut u8;
+                        *dst_ptr.add(d_off) = src_raw[s_off];
+                        *dst_ptr.add(d_off + 1) = src_raw[s_off + 1];
+                        *dst_ptr.add(d_off + 2) = src_raw[s_off + 2];
+                    }
+                }
+            }
+        }
+    });
+
+    dst
+}
+
+/// Rotação de 90 graus horário (rotate90) paralela em blocos de 64x64.
+pub fn rotate90_rgb_fast(src: &RgbImage) -> RgbImage {
+    let (sw, sh) = src.dimensions();
+    let dw = sh;
+    let dh = sw;
+    let mut dst = RgbImage::new(dw, dh);
+
+    let src_stride = (sw as usize) * 3;
+    let dst_stride = (dw as usize) * 3;
+    let src_raw = src.as_raw();
+    let dst_raw = dst.as_mut();
+
+    const TILE: usize = 64;
+    let ty_count = ((sh as usize) + TILE - 1) / TILE;
+    let tx_count = ((sw as usize) + TILE - 1) / TILE;
+
+    (0..ty_count).into_par_iter().for_each(|ty_idx| {
+        let sy_start = ty_idx * TILE;
+        let sy_end = (sy_start + TILE).min(sh as usize);
+
+        for tx_idx in 0..tx_count {
+            let sx_start = tx_idx * TILE;
+            let sx_end = (sx_start + TILE).min(sw as usize);
+
+            for sy in sy_start..sy_end {
+                let s_row = sy * src_stride;
+                for sx in sx_start..sx_end {
+                    let s_off = s_row + sx * 3;
+                    // Em 90 horário: (dx, dy) = (sh - 1 - sy, sx)
+                    let dx = (sh as usize) - 1 - sy;
+                    let dy = sx;
+                    let d_off = dy * dst_stride + dx * 3;
+
+                    unsafe {
+                        let dst_ptr = dst_raw.as_ptr() as *mut u8;
+                        *dst_ptr.add(d_off) = src_raw[s_off];
+                        *dst_ptr.add(d_off + 1) = src_raw[s_off + 1];
+                        *dst_ptr.add(d_off + 2) = src_raw[s_off + 2];
+                    }
+                }
+            }
+        }
+    });
+
+    dst
 }
 
 pub fn image_to_base64_png_thumb(img: &DynamicImage, max_side: u32) -> Option<String> {

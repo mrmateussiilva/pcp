@@ -1,8 +1,8 @@
 use crate::core::global_log::{fingerprint, GlobalLog};
 use crate::core::imaging::{
-    add_1px_black_border_inside, blit_rgb_fast, cm_to_px, draw_text_rgb,
-    image_to_base64_png_thumb, load_image_with_meta, load_system_font_bytes, measure_text_px,
-    px_to_cm, save_image_with_meta, wait_until_stable, DPI_FALLBACK,
+    blit_rgb_fast, cm_to_px, draw_text_rgb, image_to_base64_png_thumb, load_image_with_meta,
+    load_system_font_bytes, measure_text_px, px_to_cm, rotate270_rgb_fast, save_image_with_meta,
+    wait_until_stable, DPI_FALLBACK,
 };
 use chrono::Local;
 use image::{DynamicImage, Rgb, RgbImage};
@@ -333,7 +333,8 @@ fn run_monitor(
                 .show();
         }
 
-        thread::sleep(Duration::from_secs(3));
+        // Aguarda notificação do SO ou timeout de 2 segundos (reação quase imediata)
+        let _ = rx.recv_timeout(Duration::from_secs(2));
     }
 
     emit_log("Monitoramento encerrado.");
@@ -353,7 +354,7 @@ fn process_single_tiff(
 
     let meta = load_image_with_meta(path, DPI_FALLBACK)?;
     let dpi = meta.dpi_x;
-    let mut img = meta.image;
+    let img = meta.image;
 
     emit_log(&format!("[{fname}]"));
     emit_log(&format!(
@@ -368,40 +369,56 @@ fn process_single_tiff(
     let h_is_155 = (img.height() as i64 - target_px).abs() <= 2;
     let mut rotated = false;
 
-    if w_is_155 {
+    let rgb = match img {
+        DynamicImage::ImageRgb8(r) => r,
+        other => other.to_rgb8(),
+    };
+
+    let processed_rgb = if w_is_155 {
         emit_log(&format!("  largura já é ~{TARGET_WIDTH_CM} cm — sem rotação"));
+        rgb
     } else if h_is_155 {
-        // PIL rotate(90, expand=True) é 90° anti-horário = rotate270() na crate image
-        img = img.rotate270();
+        let rot = rotate270_rgb_fast(&rgb);
         rotated = true;
         emit_log(&format!(
             "  ↻ rotacionado 90° → {}x{}px ({:.2}x{:.2} cm)",
-            img.width(),
-            img.height(),
-            px_to_cm(img.width(), dpi),
-            px_to_cm(img.height(), dpi)
+            rot.width(),
+            rot.height(),
+            px_to_cm(rot.width(), dpi),
+            px_to_cm(rot.height(), dpi)
         ));
+        rot
     } else {
         emit_log(&format!(
             "  ⚠ nenhum lado é ~{TARGET_WIDTH_CM} cm — sem rotação"
         ));
-    }
+        rgb
+    };
 
-    let rgb = img.to_rgb8();
-    let (w, h) = rgb.dimensions();
+    let (w, h) = processed_rgb.dimensions();
 
-    // Contorno 1px preto ao redor (expande +2px em cada eixo)
+    // Contorno 1px preto ao redor e padding inferior 1cm em UMA ÚNICA ALOCAÇÃO
     let bw = w + 2 * BORDER_PX;
-    let bh = h + 2 * BORDER_PX;
-    let mut bordered = RgbImage::from_pixel(bw, bh, Rgb([0, 0, 0]));
-    blit_rgb_fast(&mut bordered, &rgb, BORDER_PX, BORDER_PX);
-    let _ = add_1px_black_border_inside; // mantém helper disponível
-
-    // Padding 1 cm embaixo, fundo branco
     let pad_px = cm_to_px(PAD_CM, dpi);
-    let new_h = bh + pad_px;
-    let mut padded = RgbImage::from_pixel(bw, new_h, Rgb([255, 255, 255]));
-    blit_rgb_fast(&mut padded, &bordered, 0, 0);
+    let total_h = h + 2 * BORDER_PX + pad_px;
+
+    // Fundo branco completo
+    let mut padded = RgbImage::from_pixel(bw, total_h, Rgb([255, 255, 255]));
+
+    // Blit direto da imagem centralizada no offset (BORDER_PX, BORDER_PX)
+    blit_rgb_fast(&mut padded, &processed_rgb, BORDER_PX, BORDER_PX);
+
+    // Borda preta de 1px ao redor da área da arte + borda
+    let black = Rgb([0, 0, 0]);
+    let art_bottom = h + BORDER_PX;
+    for x in 0..bw {
+        padded.put_pixel(x, 0, black);
+        padded.put_pixel(x, art_bottom, black);
+    }
+    for y in 0..=art_bottom {
+        padded.put_pixel(0, y, black);
+        padded.put_pixel(bw - 1, y, black);
+    }
 
     if add_name && !client_name.is_empty() {
         let font_size_px = cm_to_px(1.0, dpi) as f32;
@@ -409,7 +426,7 @@ fn process_single_tiff(
             .map(|b| measure_text_px(b, &client_name, font_size_px).1)
             .unwrap_or(font_size_px as u32);
         let text_x = cm_to_px(TEXT_LEFT_CM, dpi) as i32;
-        let text_y = (bh + pad_px.saturating_sub(text_h) / 2) as i32;
+        let text_y = (art_bottom + 1 + pad_px.saturating_sub(text_h) / 2) as i32;
         draw_text_rgb(
             &mut padded,
             font_bytes,

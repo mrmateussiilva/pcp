@@ -1,9 +1,9 @@
 use crate::core::imaging::{
-    add_1px_black_border_inside, blit_rgb_fast, draw_text_rgb, load_image_with_meta,
+    add_1px_black_border_inside_inplace, blit_rgb_fast, draw_text_rgb, load_image_with_meta,
     load_system_font_bytes, measure_text_px, parse_hex_color, paste_rgba_onto_rgb,
-    resize_rgba_simd, save_image_with_meta,
+    resize_rgba_simd, rotate270_rgb_fast, rotate90_rgb_fast, save_image_with_meta,
 };
-use image::{DynamicImage, GenericImageView, Rgb, RgbImage, RgbaImage};
+use image::{imageops, DynamicImage, Rgb, RgbImage, RgbaImage};
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
 use regex::Regex;
@@ -12,9 +12,22 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use tauri::{AppHandle, Emitter};
+
+static RE_PLATE: OnceLock<Regex> = OnceLock::new();
+static RE_CITY: OnceLock<Regex> = OnceLock::new();
+
+fn get_re_plate() -> &'static Regex {
+    RE_PLATE.get_or_init(|| Regex::new(r"(?i) - P\d+$").unwrap())
+}
+
+fn get_re_city() -> &'static Regex {
+    RE_CITY.get_or_init(|| {
+        Regex::new(r"(?i)^\s*(?P<city>.+?)\s*\(\s*L\s*\d+(?:[.,]\d+)?\s*[X×]\s*A\s*\d+(?:[.,]\d+)?\s*\)\s*$").unwrap()
+    })
+}
 
 const DEFAULT_COLOR_PALETTE: &[(&str, &str)] = &[
     ("preto", "#000000"),
@@ -150,7 +163,7 @@ fn is_image_ext(p: &Path) -> bool {
 }
 
 fn listar_paineis(entrada: &Path, gabarito: &Path) -> Result<Vec<PathBuf>, String> {
-    let re_plate = Regex::new(r"(?i) - P\d+$").unwrap();
+    let re_plate = get_re_plate();
     let gab_abs = fs::canonicalize(gabarito).unwrap_or_else(|_| gabarito.to_path_buf());
 
     let entries = fs::read_dir(entrada).map_err(|e| format!("Erro ao ler pasta de entrada: {e}"))?;
@@ -201,12 +214,8 @@ fn resolver_cor(nome_ou_hex: &str) -> Rgb<u8> {
 }
 
 fn extrair_cidade(filename: &str, overrides: &HashMap<String, String>) -> Option<String> {
-    let re = Regex::new(
-        r"(?i)^\s*(?P<city>.+?)\s*\(\s*L\s*\d+(?:[.,]\d+)?\s*[X×]\s*A\s*\d+(?:[.,]\d+)?\s*\)\s*$",
-    )
-    .ok()?;
     let stem = Path::new(filename).file_stem()?.to_string_lossy();
-    let caps = re.captures(&stem)?;
+    let caps = get_re_city().captures(&stem)?;
     let raw = caps.name("city")?.as_str().trim().to_uppercase();
     if let Some(ov) = overrides.get(&raw) {
         return Some(ov.to_uppercase());
@@ -283,7 +292,7 @@ fn draw_filename_in_padding(
 
 #[allow(clippy::too_many_arguments)]
 fn apply_plate_decorations(
-    cropped: DynamicImage,
+    mut cropped: RgbImage,
     plate_pos: &str,
     number: usize,
     pad_cm: f64,
@@ -294,14 +303,14 @@ fn apply_plate_decorations(
     font_bytes: Option<&[u8]>,
     city_label: Option<(&str, Rgb<u8>, f64, f64, f64)>,
 ) -> RgbImage {
-    let bordered = add_1px_black_border_inside(&cropped.to_rgb8());
+    add_1px_black_border_inside_inplace(&mut cropped);
     let pad_x = (pad_cm * dpi.0 / 2.54).ceil().max(0.0) as u32;
     let pad_y = (pad_cm * dpi.1 / 2.54).ceil().max(0.0) as u32;
 
-    let bw = bordered.width() + 2 * pad_x;
-    let bh = bordered.height() + 2 * pad_y;
+    let bw = cropped.width() + 2 * pad_x;
+    let bh = cropped.height() + 2 * pad_y;
     let mut out = RgbImage::from_pixel(bw, bh, Rgb([255, 255, 255]));
-    blit_rgb_fast(&mut out, &bordered, pad_x, pad_y);
+    blit_rgb_fast(&mut out, &cropped, pad_x, pad_y);
 
     if let Some((city, c_color, c_w_cm, c_h_cm, c_margin_cm)) = city_label {
         if let Some(bytes) = font_bytes {
@@ -422,14 +431,14 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
 
             let res = (|| -> Result<(), String> {
                 let meta = load_image_with_meta(img_path, 72.0)?;
-                let mut panel = meta.image;
+                let mut panel = meta.image.into_rgb8();
                 let dpi = (meta.dpi_x, meta.dpi_y);
 
                 if payload.inverter {
-                    panel = panel.rotate180();
+                    imageops::rotate180_in_place(&mut panel);
                 }
                 if tipo == "horizontal" {
-                    panel = panel.rotate270();
+                    panel = rotate270_rgb_fast(&panel);
                 }
 
                 let (pw, ph) = panel.dimensions();
@@ -474,7 +483,7 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
 
                     let x0 = (x_origin_f.round().max(0.0) as u32).min(pw.saturating_sub(1));
                     let x1 = (size_of_cut_f.round().max((x0 + 1) as f64) as u32).min(pw);
-                    let cropped = panel.crop_imm(x0, 0, x1 - x0, ph);
+                    let cropped = imageops::crop_imm(&panel, x0, 0, x1 - x0, ph).to_image();
 
                     let city_arg = if plate == n_placas {
                         city.as_deref().map(|c| {
@@ -503,17 +512,16 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
                         city_arg,
                     );
 
-                    let mut dyn_plate = DynamicImage::ImageRgb8(std::mem::take(&mut plate_rgb));
                     if tipo == "horizontal" {
-                        dyn_plate = dyn_plate.rotate90();
+                        plate_rgb = rotate90_rgb_fast(&plate_rgb);
                     }
                     if payload.inverter {
-                        dyn_plate = dyn_plate.rotate180();
+                        imageops::rotate180_in_place(&mut plate_rgb);
                     }
 
                     let out_name = format!("{stem} - P{plate:02}.{ext}");
                     save_image_with_meta(
-                        &dyn_plate,
+                        &DynamicImage::ImageRgb8(plate_rgb),
                         &saida.join(out_name),
                         dpi.0,
                         dpi.1,
@@ -580,13 +588,13 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
 
         match load_image_with_meta(img_path, 72.0) {
             Ok(meta) => {
-                let mut panel = meta.image;
+                let mut panel = meta.image.into_rgb8();
                 let dpi = (meta.dpi_x, meta.dpi_y);
                 if payload.inverter {
-                    panel = panel.rotate180();
+                    imageops::rotate180_in_place(&mut panel);
                 }
                 if tipo == "horizontal" {
-                    panel = panel.rotate270();
+                    panel = rotate270_rgb_fast(&panel);
                 }
 
                 let (pw, ph) = panel.dimensions();
@@ -614,7 +622,7 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
 
                     let x0 = (x_origin_f.round().max(0.0) as u32).min(pw.saturating_sub(1));
                     let x1 = (size_of_cut_f.round().max((x0 + 1) as f64) as u32).min(pw);
-                    let cropped = panel.crop_imm(x0, 0, x1 - x0, ph);
+                    let cropped = imageops::crop_imm(&panel, x0, 0, x1 - x0, ph).to_image();
 
                     let mut plate_rgb = apply_plate_decorations(
                         cropped,
@@ -629,17 +637,16 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
                         None,
                     );
 
-                    let mut dyn_plate = DynamicImage::ImageRgb8(std::mem::take(&mut plate_rgb));
                     if tipo == "horizontal" {
-                        dyn_plate = dyn_plate.rotate90();
+                        plate_rgb = rotate90_rgb_fast(&plate_rgb);
                     }
                     if payload.inverter {
-                        dyn_plate = dyn_plate.rotate180();
+                        imageops::rotate180_in_place(&mut plate_rgb);
                     }
 
                     let out_name = format!("{stem} - P{plate:02}.{ext}");
                     if let Err(e) = save_image_with_meta(
-                        &dyn_plate,
+                        &DynamicImage::ImageRgb8(plate_rgb),
                         &saida.join(out_name),
                         dpi.0,
                         dpi.1,
