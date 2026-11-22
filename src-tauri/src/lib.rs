@@ -36,7 +36,13 @@ pub fn run() {
             app.manage(CortadorService::new());
             app.manage(ShopeeService::new());
             app.manage(CalandragemService::new());
-            app.manage(ConsumoService::new());
+            let consumo_srv = ConsumoService::new();
+            if let Some(sec) = cfg_inicial.secoes.get("consumo") {
+                if let Ok(c) = serde_json::from_value::<core::consumo::ConsumoConfig>(sec.clone()) {
+                    consumo_srv.set_config(c);
+                }
+            }
+            app.manage(consumo_srv);
 
             if cfg_inicial.criar_ao_abrir {
                 let cfg_clone = cfg_inicial.clone();
@@ -142,6 +148,8 @@ pub fn run() {
             commands::whatsapp::whatsapp_parar,
             commands::consumo::consumo_analisar,
             commands::consumo::consumo_get_pasta,
+            commands::consumo::consumo_get_config,
+            commands::consumo::consumo_save_config,
             commands::consumo::consumo_status,
             commands::consumo::consumo_resultado_atual,
             commands::consumo::consumo_iniciar_monitor,
