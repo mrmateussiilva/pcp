@@ -1,7 +1,11 @@
 use crate::core::config::ConfigManager;
-use crate::core::shopee::{ShopeeCounters, ShopeeOpcoes, ShopeeService, ShopeeStatus};
+use crate::core::shopee::{
+    carregar_miniatura_base64, listar_prontos, obter_diagnostico, ShopeeCounters,
+    ShopeeDiagnostico, ShopeeOpcoes, ShopeeProntoItem, ShopeeService, ShopeeStatus,
+};
 use serde_json::json;
-use tauri::{AppHandle, State};
+use std::path::PathBuf;
+use tauri::{AppHandle, Emitter, State};
 
 #[tauri::command]
 pub fn shopee_get_config(cfg: State<'_, ConfigManager>) -> ShopeeOpcoes {
@@ -64,6 +68,12 @@ pub fn shopee_counters(srv: State<'_, ShopeeService>) -> ShopeeCounters {
 }
 
 #[tauri::command]
+pub fn shopee_reset_counters(srv: State<'_, ShopeeService>, app: AppHandle) {
+    srv.reset_counters();
+    let _ = app.emit("shopee-counters", srv.counters());
+}
+
+#[tauri::command]
 pub fn shopee_iniciar(
     app: AppHandle,
     cfg: State<'_, ConfigManager>,
@@ -90,4 +100,42 @@ pub fn shopee_executar_uma_vez(
 ) -> Result<(), String> {
     let _ = shopee_save_config(cfg, opcoes.clone());
     srv.executar_uma_vez(app, opcoes, refazer)
+}
+
+#[tauri::command]
+pub async fn shopee_obter_diagnostico(
+    pasta: String,
+    tolerancia_min: Option<u64>,
+) -> Result<ShopeeDiagnostico, String> {
+    let p = PathBuf::from(pasta.trim());
+    if !p.is_dir() {
+        return Err("Pasta inválida.".to_string());
+    }
+    let tol = tolerancia_min.unwrap_or(2);
+    tokio::task::spawn_blocking(move || obter_diagnostico(&p, tol))
+        .await
+        .map_err(|e| format!("Erro no diagnóstico: {e}"))?
+}
+
+#[tauri::command]
+pub async fn shopee_listar_prontos(
+    pasta: String,
+    limite: Option<usize>,
+) -> Result<Vec<ShopeeProntoItem>, String> {
+    let p = PathBuf::from(pasta.trim());
+    if !p.is_dir() {
+        return Ok(Vec::new());
+    }
+    let lim = limite.unwrap_or(48);
+    tokio::task::spawn_blocking(move || listar_prontos(&p, lim))
+        .await
+        .map_err(|e| format!("Erro ao listar prontos: {e}"))
+}
+
+#[tauri::command]
+pub async fn shopee_carregar_miniatura(caminho: String) -> Result<String, String> {
+    let p = PathBuf::from(caminho.trim());
+    tokio::task::spawn_blocking(move || carregar_miniatura_base64(&p))
+        .await
+        .map_err(|e| format!("Erro ao gerar miniatura: {e}"))?
 }
