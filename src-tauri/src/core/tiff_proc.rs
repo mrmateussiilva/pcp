@@ -7,7 +7,7 @@ use crate::core::imaging::{
 use chrono::Local;
 use image::{DynamicImage, Rgb, RgbImage};
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -18,10 +18,32 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_notification::NotificationExt;
 
-const TARGET_WIDTH_CM: f64 = 155.0;
-const PAD_CM: f64 = 1.0;
-const BORDER_PX: u32 = 1;
 const TEXT_LEFT_CM: f64 = 0.3;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TiffConfig {
+    pub pasta: String,
+    pub pasta_saida: String,
+    pub target_width_cm: f64,
+    pub tolerancia_cm: f64,
+    pub pad_cm: f64,
+    pub borda_px: u32,
+    pub add_name: bool,
+}
+
+impl Default for TiffConfig {
+    fn default() -> Self {
+        Self {
+            pasta: String::new(),
+            pasta_saida: String::new(),
+            target_width_cm: 155.0,
+            tolerancia_cm: 1.5,
+            pad_cm: 1.0,
+            borda_px: 1,
+            add_name: true,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TiffCounters {
@@ -52,13 +74,20 @@ pub struct TiffDebugItem {
 pub struct TiffStatus {
     pub monitorando: bool,
     pub pasta: String,
-    pub add_name: bool,
+    pub config: TiffConfig,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TiffLoteSummary {
+    pub processados: usize,
+    pub duplicados: usize,
+    pub erros: usize,
+    pub total: usize,
 }
 
 pub struct TiffService {
     stop_flag: Mutex<Option<Arc<AtomicBool>>>,
-    add_name: Arc<AtomicBool>,
-    pasta: Mutex<String>,
+    config: Arc<Mutex<TiffConfig>>,
     counters: Arc<Mutex<TiffCounters>>,
     global_log: Arc<GlobalLog>,
 }
@@ -67,8 +96,7 @@ impl TiffService {
     pub fn new() -> Self {
         Self {
             stop_flag: Mutex::new(None),
-            add_name: Arc::new(AtomicBool::new(true)),
-            pasta: Mutex::new(String::new()),
+            config: Arc::new(Mutex::new(TiffConfig::default())),
             counters: Arc::new(Mutex::new(TiffCounters {
                 ok: 0,
                 skip: 0,
@@ -79,8 +107,16 @@ impl TiffService {
         }
     }
 
+    pub fn current_config(&self) -> TiffConfig {
+        self.config.lock().unwrap().clone()
+    }
+
+    pub fn set_config(&self, cfg: TiffConfig) {
+        *self.config.lock().unwrap() = cfg;
+    }
+
     pub fn set_add_name(&self, val: bool) {
-        self.add_name.store(val, Ordering::Relaxed);
+        self.config.lock().unwrap().add_name = val;
     }
 
     pub fn status(&self) -> TiffStatus {
@@ -91,10 +127,11 @@ impl TiffService {
             .as_ref()
             .map(|f| !f.load(Ordering::Relaxed))
             .unwrap_or(false);
+        let cfg = self.config.lock().unwrap().clone();
         TiffStatus {
             monitorando: rodando,
-            pasta: self.pasta.lock().unwrap().clone(),
-            add_name: self.add_name.load(Ordering::Relaxed),
+            pasta: cfg.pasta.clone(),
+            config: cfg,
         }
     }
 
@@ -102,26 +139,26 @@ impl TiffService {
         self.counters.lock().unwrap().clone()
     }
 
-    pub fn start(&self, app: AppHandle, folder: PathBuf, add_name: bool) -> Result<TiffStatus, String> {
+    pub fn start(&self, app: AppHandle, config: TiffConfig) -> Result<TiffStatus, String> {
+        let folder = PathBuf::from(config.pasta.trim());
         if !folder.is_dir() {
             return Err("Selecione uma pasta válida para monitorar.".to_string());
         }
         self.stop(&app);
 
-        self.add_name.store(add_name, Ordering::Relaxed);
-        *self.pasta.lock().unwrap() = folder.to_string_lossy().into_owned();
+        *self.config.lock().unwrap() = config;
 
         let stop = Arc::new(AtomicBool::new(false));
         *self.stop_flag.lock().unwrap() = Some(stop.clone());
 
-        let add_name_ref = self.add_name.clone();
+        let config_ref = self.config.clone();
         let counters_ref = self.counters.clone();
         let glog = self.global_log.clone();
         let app_clone = app.clone();
         let folder_clone = folder.clone();
 
         thread::spawn(move || {
-            run_monitor(app_clone, folder_clone, stop, add_name_ref, counters_ref, glog);
+            run_monitor(app_clone, folder_clone, stop, config_ref, counters_ref, glog);
         });
 
         let st = self.status();
@@ -133,13 +170,178 @@ impl TiffService {
         if let Some(flag) = self.stop_flag.lock().unwrap().take() {
             flag.store(true, Ordering::Relaxed);
         }
+        let cfg = self.config.lock().unwrap().clone();
         let st = TiffStatus {
             monitorando: false,
-            pasta: self.pasta.lock().unwrap().clone(),
-            add_name: self.add_name.load(Ordering::Relaxed),
+            pasta: cfg.pasta.clone(),
+            config: cfg,
         };
         let _ = app.emit("tiff-status", st.clone());
         st
+    }
+
+    pub fn process_batch(
+        &self,
+        app: &AppHandle,
+        cfg: &TiffConfig,
+    ) -> Result<TiffLoteSummary, String> {
+        let folder = PathBuf::from(cfg.pasta.trim());
+        if !folder.is_dir() {
+            return Err("Selecione uma pasta de entrada válida para processar.".to_string());
+        }
+
+        let emit_log = |msg: &str| {
+            let _ = app.emit("tiff-log", msg.to_string());
+        };
+
+        let mut tiffs = Vec::new();
+        if let Ok(entries) = fs::read_dir(&folder) {
+            for e in entries.flatten() {
+                let p = e.path();
+                if is_tiff(&p) {
+                    tiffs.push(p);
+                }
+            }
+        }
+        tiffs.sort();
+
+        let total = tiffs.len();
+        if total == 0 {
+            emit_log(&format!("Nenhum arquivo TIFF encontrado em {}", folder.display()));
+            return Ok(TiffLoteSummary {
+                processados: 0,
+                duplicados: 0,
+                erros: 0,
+                total: 0,
+            });
+        }
+
+        emit_log(&format!(
+            "▶ Iniciando lote manual: {total} arquivo(s) em {}",
+            folder.display()
+        ));
+
+        let font_bytes = load_system_font_bytes();
+        let mut lote_ok = 0usize;
+        let mut lote_skip = 0usize;
+        let mut lote_err = 0usize;
+
+        for p in tiffs {
+            let fname = p
+                .file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+
+            if self.global_log.ja_processado(&p) {
+                let fp_orig = fingerprint(&p).ok();
+                let parent_up = if !cfg.pasta_saida.trim().is_empty() {
+                    PathBuf::from(cfg.pasta_saida.trim())
+                } else {
+                    p.parent()
+                        .and_then(|d| d.parent())
+                        .map(|d| d.to_path_buf())
+                        .unwrap_or_else(|| folder.clone())
+                };
+                let mut dest = parent_up.join(&fname);
+                if dest.exists() {
+                    let ts = Local::now().format("%Y%m%d_%H%M%S");
+                    let stem = p.file_stem().unwrap_or_default().to_string_lossy();
+                    let ext = p.extension().unwrap_or_default().to_string_lossy();
+                    dest = parent_up.join(format!("{stem}_duplicado_{ts}.{ext}"));
+                }
+                if let Err(e) = fs::rename(&p, &dest).or_else(|_| {
+                    fs::copy(&p, &dest)?;
+                    fs::remove_file(&p)
+                }) {
+                    emit_log(&format!("✘ Erro ao mover duplicado {fname}: {e}"));
+                    lote_err += 1;
+                } else {
+                    emit_log(&format!("📦 Duplicado movido para: {}", dest.display()));
+                    self.global_log.registrar(
+                        "DUPLICADO",
+                        &fname,
+                        fp_orig,
+                        None,
+                        &folder.to_string_lossy(),
+                        &dest.parent().unwrap_or(&parent_up).to_string_lossy(),
+                        false,
+                        &client_name_from_filename(&fname),
+                        0.0,
+                        0.0,
+                        "Movido sem sobrescrever",
+                    );
+                    lote_skip += 1;
+                }
+                continue;
+            }
+
+            let fp_orig = fingerprint(&p).ok();
+            match process_single_tiff(&p, cfg, font_bytes, &emit_log) {
+                Ok(debug) => {
+                    let out_path = PathBuf::from(&debug.output);
+                    let fp_out = fingerprint(&out_path).ok();
+                    let _ = fs::remove_file(&p);
+                    self.global_log.registrar(
+                        "PROCESSADO",
+                        &fname,
+                        fp_orig,
+                        fp_out,
+                        &folder.to_string_lossy(),
+                        &out_path.parent().unwrap_or(&folder).to_string_lossy(),
+                        debug.rotated,
+                        &debug.client,
+                        debug.width_cm,
+                        debug.height_cm,
+                        "",
+                    );
+                    let _ = app.emit("tiff-debug", debug);
+                    lote_ok += 1;
+                }
+                Err(e) => {
+                    emit_log(&format!("✘ Erro em {fname}: {e}"));
+                    self.global_log.registrar(
+                        "ERRO",
+                        &fname,
+                        fp_orig,
+                        None,
+                        &folder.to_string_lossy(),
+                        "",
+                        false,
+                        &client_name_from_filename(&fname),
+                        0.0,
+                        0.0,
+                        &e,
+                    );
+                    lote_err += 1;
+                }
+            }
+        }
+
+        let snap = {
+            let mut c = self.counters.lock().unwrap();
+            c.ok += lote_ok;
+            c.skip += lote_skip;
+            c.err += lote_err;
+            c.tot += 1;
+            c.clone()
+        };
+        let _ = app.emit("tiff-counters", snap);
+
+        let _ = app
+            .notification()
+            .builder()
+            .title("TIFF Processor — Lote Concluído")
+            .body(format!(
+                "Processados: {lote_ok} | Duplicados: {lote_skip} | Erros: {lote_err}"
+            ))
+            .show();
+
+        Ok(TiffLoteSummary {
+            processados: lote_ok,
+            duplicados: lote_skip,
+            erros: lote_err,
+            total,
+        })
     }
 }
 
@@ -167,7 +369,7 @@ fn run_monitor(
     app: AppHandle,
     folder: PathBuf,
     stop: Arc<AtomicBool>,
-    add_name: Arc<AtomicBool>,
+    config: Arc<Mutex<TiffConfig>>,
     counters: Arc<Mutex<TiffCounters>>,
     glog: Arc<GlobalLog>,
 ) {
@@ -191,11 +393,13 @@ fn run_monitor(
     let mut seen_in_progress: HashSet<PathBuf> = HashSet::new();
     let font_bytes = load_system_font_bytes();
 
-    emit_log(&format!("Monitorando: {}", folder.display()));
+    emit_log(&format!("Watcher iniciado para: {}", folder.display()));
 
     while !stop.load(Ordering::Relaxed) {
         // Drena eventos do watcher
         while rx.try_recv().is_ok() {}
+
+        let cfg = config.lock().unwrap().clone();
 
         let mut tiffs = Vec::new();
         if let Ok(entries) = fs::read_dir(&folder) {
@@ -233,7 +437,14 @@ fn run_monitor(
 
             if glog.ja_processado(&p) {
                 let fp_orig = fingerprint(&p).ok();
-                let parent_up = p.parent().and_then(|d| d.parent()).unwrap_or(&folder);
+                let parent_up = if !cfg.pasta_saida.trim().is_empty() {
+                    PathBuf::from(cfg.pasta_saida.trim())
+                } else {
+                    p.parent()
+                        .and_then(|d| d.parent())
+                        .map(|d| d.to_path_buf())
+                        .unwrap_or_else(|| folder.clone())
+                };
                 let mut dest = parent_up.join(&fname);
                 if dest.exists() {
                     let ts = Local::now().format("%Y%m%d_%H%M%S");
@@ -255,7 +466,7 @@ fn run_monitor(
                         fp_orig,
                         None,
                         &folder.to_string_lossy(),
-                        &dest.parent().unwrap_or(parent_up).to_string_lossy(),
+                        &dest.parent().unwrap_or(&parent_up).to_string_lossy(),
                         false,
                         &client_name_from_filename(&fname),
                         0.0,
@@ -269,8 +480,7 @@ fn run_monitor(
             }
 
             let fp_orig = fingerprint(&p).ok();
-            let usar_nome = add_name.load(Ordering::Relaxed);
-            match process_single_tiff(&p, usar_nome, font_bytes, &emit_log) {
+            match process_single_tiff(&p, &cfg, font_bytes, &emit_log) {
                 Ok(debug) => {
                     let out_path = PathBuf::from(&debug.output);
                     let fp_out = fingerprint(&out_path).ok();
@@ -337,12 +547,12 @@ fn run_monitor(
         let _ = rx.recv_timeout(Duration::from_secs(2));
     }
 
-    emit_log("Monitoramento encerrado.");
+    emit_log("Watcher encerrado.");
 }
 
-fn process_single_tiff(
+pub fn process_single_tiff(
     path: &Path,
-    add_name: bool,
+    cfg: &TiffConfig,
     font_bytes: Option<&[u8]>,
     emit_log: &dyn Fn(&str),
 ) -> Result<TiffDebugItem, String> {
@@ -364,9 +574,17 @@ fn process_single_tiff(
         if meta.icc_profile.is_some() { "sim" } else { "não" }
     ));
 
-    let target_px = cm_to_px(TARGET_WIDTH_CM, dpi) as i64;
-    let w_is_155 = (img.width() as i64 - target_px).abs() <= 2;
-    let h_is_155 = (img.height() as i64 - target_px).abs() <= 2;
+    let w_cm = px_to_cm(img.width(), dpi);
+    let h_cm = px_to_cm(img.height(), dpi);
+
+    let target = cfg.target_width_cm;
+    let tol = cfg.tolerancia_cm.max(0.1);
+
+    let w_diff = (w_cm - target).abs();
+    let h_diff = (h_cm - target).abs();
+
+    let w_is_target = w_diff <= tol;
+    let h_is_target = h_diff <= tol;
     let mut rotated = false;
 
     let rgb = match img {
@@ -374,53 +592,57 @@ fn process_single_tiff(
         other => other.to_rgb8(),
     };
 
-    let processed_rgb = if w_is_155 {
-        emit_log(&format!("  largura já é ~{TARGET_WIDTH_CM} cm — sem rotação"));
+    let processed_rgb = if w_is_target {
+        emit_log(&format!(
+            "  largura já é ~{target:.1} cm ({w_cm:.2} cm, diff: {w_diff:.2} cm) — sem rotação"
+        ));
         rgb
-    } else if h_is_155 {
+    } else if h_is_target {
         let rot = rotate270_rgb_fast(&rgb);
         rotated = true;
+        let new_w_cm = px_to_cm(rot.width(), dpi);
+        let new_h_cm = px_to_cm(rot.height(), dpi);
         emit_log(&format!(
-            "  ↻ rotacionado 90° → {}x{}px ({:.2}x{:.2} cm)",
-            rot.width(),
-            rot.height(),
-            px_to_cm(rot.width(), dpi),
-            px_to_cm(rot.height(), dpi)
+            "  ↻ rotacionado 90° (altura era {h_cm:.2} cm) → nova dimensão: {new_w_cm:.2} × {new_h_cm:.2} cm"
         ));
         rot
     } else {
         emit_log(&format!(
-            "  ⚠ nenhum lado é ~{TARGET_WIDTH_CM} cm — sem rotação"
+            "  ⚠ nenhum lado está na faixa de {target:.1} ± {tol:.1} cm (L: {w_cm:.2} cm, A: {h_cm:.2} cm) — sem rotação"
         ));
         rgb
     };
 
     let (w, h) = processed_rgb.dimensions();
 
-    // Contorno 1px preto ao redor e padding inferior 1cm em UMA ÚNICA ALOCAÇÃO
-    let bw = w + 2 * BORDER_PX;
-    let pad_px = cm_to_px(PAD_CM, dpi);
-    let total_h = h + 2 * BORDER_PX + pad_px;
+    let border_px = cfg.borda_px;
+    let pad_px = cm_to_px(cfg.pad_cm.max(0.0), dpi);
+    let bw = w + 2 * border_px;
+    let total_h = h + 2 * border_px + pad_px;
 
-    // Fundo branco completo
     let mut padded = RgbImage::from_pixel(bw, total_h, Rgb([255, 255, 255]));
 
-    // Blit direto da imagem centralizada no offset (BORDER_PX, BORDER_PX)
-    blit_rgb_fast(&mut padded, &processed_rgb, BORDER_PX, BORDER_PX);
+    blit_rgb_fast(&mut padded, &processed_rgb, border_px, border_px);
 
-    // Borda preta de 1px ao redor da área da arte + borda
-    let black = Rgb([0, 0, 0]);
-    let art_bottom = h + BORDER_PX;
-    for x in 0..bw {
-        padded.put_pixel(x, 0, black);
-        padded.put_pixel(x, art_bottom, black);
-    }
-    for y in 0..=art_bottom {
-        padded.put_pixel(0, y, black);
-        padded.put_pixel(bw - 1, y, black);
+    if border_px > 0 {
+        let black = Rgb([0, 0, 0]);
+        let art_bottom = h + border_px;
+        for x in 0..bw {
+            for b in 0..border_px {
+                padded.put_pixel(x, b, black);
+                padded.put_pixel(x, art_bottom + b, black);
+            }
+        }
+        for y in 0..=art_bottom + border_px.saturating_sub(1) {
+            for b in 0..border_px {
+                padded.put_pixel(b, y, black);
+                padded.put_pixel(bw - 1 - b, y, black);
+            }
+        }
     }
 
-    if add_name && !client_name.is_empty() {
+    let art_bottom = h + border_px;
+    if cfg.add_name && !client_name.is_empty() && pad_px > 0 {
         let font_size_px = cm_to_px(1.0, dpi) as f32;
         let text_h = font_bytes
             .map(|b| measure_text_px(b, &client_name, font_size_px).1)
@@ -438,11 +660,19 @@ fn process_single_tiff(
         );
     }
 
-    let out_dir = path
-        .parent()
-        .and_then(|p| p.parent())
-        .ok_or_else(|| "Pasta pai inválida".to_string())?;
-    let out_path = out_dir.join(&fname);
+    let out_path = if !cfg.pasta_saida.trim().is_empty() {
+        let out_dir = PathBuf::from(cfg.pasta_saida.trim());
+        if !out_dir.exists() {
+            let _ = fs::create_dir_all(&out_dir);
+        }
+        out_dir.join(&fname)
+    } else {
+        let out_dir = path
+            .parent()
+            .and_then(|p| p.parent())
+            .ok_or_else(|| "Pasta pai inválida".to_string())?;
+        out_dir.join(&fname)
+    };
 
     let final_dyn = DynamicImage::ImageRgb8(padded);
     save_image_with_meta(
@@ -463,7 +693,7 @@ fn process_single_tiff(
         dpi,
         icc: meta.icc_profile.is_some(),
         rotated,
-        name_added: add_name,
+        name_added: cfg.add_name,
         width_px: final_dyn.width(),
         height_px: final_dyn.height(),
         width_cm: px_to_cm(final_dyn.width(), dpi),
