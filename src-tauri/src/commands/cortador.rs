@@ -1,5 +1,8 @@
 use crate::core::config::{pasta_do_dia, ConfigManager};
-use crate::core::cortador::{CortadorAutoPayload, CortadorMedidasPayload, CortadorService};
+use crate::core::cortador::{
+    simular_auto, simular_medidas, CortadorAutoPayload, CortadorMedidasPayload, CortadorService,
+    CortadorSimulacao,
+};
 use serde_json::{json, Value};
 use tauri::{AppHandle, State};
 
@@ -58,4 +61,27 @@ pub fn cortador_executar_medidas(
     payload: CortadorMedidasPayload,
 ) -> Result<(), String> {
     srv.executar_medidas(app, payload)
+}
+
+#[tauri::command]
+pub fn cortador_cancelar(srv: State<'_, CortadorService>) {
+    srv.cancelar();
+}
+
+#[tauri::command]
+pub async fn cortador_simular_auto(
+    payload: CortadorAutoPayload,
+) -> Result<CortadorSimulacao, String> {
+    tokio::task::spawn_blocking(move || simular_auto(&payload))
+        .await
+        .map_err(|e| format!("Falha na simulação: {e}"))?
+}
+
+#[tauri::command]
+pub async fn cortador_simular_medidas(
+    payload: CortadorMedidasPayload,
+) -> Result<CortadorSimulacao, String> {
+    tokio::task::spawn_blocking(move || simular_medidas(&payload))
+        .await
+        .map_err(|e| format!("Falha na simulação: {e}"))?
 }

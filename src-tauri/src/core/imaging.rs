@@ -156,6 +156,60 @@ fn decode_tiff_single_open(
     }
 }
 
+fn read_tiff_dpi(decoder: &mut Decoder<BufReader<File>>, fallback_dpi: f64) -> (f64, f64) {
+    let mut dpi_x = fallback_dpi;
+    let mut dpi_y = fallback_dpi;
+
+    let unit = decoder.get_tag_u32(Tag::ResolutionUnit).unwrap_or(2);
+    if let Some(mut x) = read_rational_tag(decoder, Tag::XResolution) {
+        if unit == 3 {
+            x *= 2.54;
+        }
+        if x > 0.0 {
+            dpi_x = x;
+        }
+    }
+    if let Some(mut y) = read_rational_tag(decoder, Tag::YResolution) {
+        if unit == 3 {
+            y *= 2.54;
+        }
+        if y > 0.0 {
+            dpi_y = y;
+        }
+    } else {
+        dpi_y = dpi_x;
+    }
+    (dpi_x, dpi_y)
+}
+
+/// Lê apenas dimensões (px) e DPI do cabeçalho sem decodificar os pixels da imagem.
+pub fn read_image_dimensions_and_dpi(
+    path: &Path,
+    fallback_dpi: f64,
+) -> Result<(u32, u32, f64, f64), String> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    if ext == "tif" || ext == "tiff" {
+        let file = File::open(path).map_err(|e| format!("Erro ao abrir TIFF: {e}"))?;
+        let mut decoder = Decoder::new(BufReader::with_capacity(64 * 1024, file))
+            .map_err(|e| format!("Erro ao ler cabeçalho TIFF: {e}"))?
+            .with_limits(Limits::unlimited());
+        let (dpi_x, dpi_y) = read_tiff_dpi(&mut decoder, fallback_dpi);
+        let (w, h) = decoder
+            .dimensions()
+            .map_err(|e| format!("Erro ao ler dimensões TIFF: {e}"))?;
+        return Ok((w, h, dpi_x, dpi_y));
+    }
+
+    let (w, h) =
+        image::image_dimensions(path).map_err(|e| format!("Erro ao ler dimensões da imagem: {e}"))?;
+    Ok((w, h, fallback_dpi, fallback_dpi))
+}
+
 /// Carrega imagem (TIFF ou PNG/JPEG) abrindo TIFF em passada única quando possível.
 pub fn load_image_with_meta(path: &Path, fallback_dpi: f64) -> Result<LoadedImageMeta, String> {
     let ext = path
