@@ -1,7 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "PCP Central",
-  "version": "0.1.0",
+  "mainBinaryName": "pcp-central",
+  "version": "../package.json",
   "identifier": "com.pcp.central",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -12,11 +13,13 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "PCP Sublimação — Central",
         "width": 1320,
         "height": 820,
         "minWidth": 1000,
-        "minHeight": 620
+        "minHeight": 620,
+        "center": true
       }
     ],
     "security": {
@@ -26,12 +29,31 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "PCP Sublimação",
+    "copyright": "© PCP Sublimação",
+    "category": "Productivity",
+    "shortDescription": "Central de produção PCP (sublimação)",
+    "longDescription": "PCP Central — ferramentas de pré-impressão, produção, expedição e comunicação para sublimação em uma única aplicação desktop.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["PortugueseBR"],
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico"
+      },
+      "wix": {
+        "language": "pt-BR"
+      }
+    }
   }
 }
