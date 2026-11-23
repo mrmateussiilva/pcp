@@ -246,13 +246,24 @@ pub fn descobrir_tecido(nome: &str, extras: &[String]) -> String {
 }
 
 pub fn extrair_quantidade(nome: &str) -> usize {
+    static RE_DIM: OnceLock<Regex> = OnceLock::new();
     static RE_QTD: OnceLock<Regex> = OnceLock::new();
-    let re = RE_QTD.get_or_init(|| {
-        // Ignora padrões de dimensão (ex: 200x150) através do negative lookahead (?!\s*\d)
-        Regex::new(r"(?i)(?:^|[\s_(\[-])(?:(\d{1,3})\s*[xX](?!\s*\d)|[xX]\s*(\d{1,3})|(?:qtd|quant|copias|unidades)[\s.:_-]*(\d{1,3})|(\d{1,3})\s*(?:un|pcs|pçs))(?:[\s_)\]-]|$)").unwrap()
+
+    let re_dim = RE_DIM.get_or_init(|| {
+        Regex::new(r"(?i)[lL]?\s*\d+(?:[.,]\d+)?\s*(?:cm|m|mm)?\s*[xX×]\s*[aA]?\s*\d+(?:[.,]\d+)?")
+            .expect("RE_DIM regex válida")
+    });
+    let re_qtd = RE_QTD.get_or_init(|| {
+        Regex::new(
+            r"(?i)(?:^|[\s_(\[-])(?:(\d{1,3})\s*[xX]|[xX]\s*(\d{1,3})|(?:qtd|quant|copias|unidades)[\s.:_-]*(\d{1,3})|(\d{1,3})\s*(?:un|und|pcs|pçs))(?:[\s_.)\]-]|$)",
+        )
+        .expect("RE_QTD regex válida")
     });
 
-    if let Some(caps) = re.captures(nome) {
+    // Remove padrões de dimensão (ex: 200x150, 200 x 150, L500 X A250) antes de buscar quantidade
+    let limpo = re_dim.replace_all(nome, " ");
+
+    if let Some(caps) = re_qtd.captures(&limpo) {
         for i in 1..=4 {
             if let Some(m) = caps.get(i) {
                 if let Ok(val) = m.as_str().parse::<usize>() {
@@ -541,5 +552,21 @@ fn watch_loop(
         }
 
         let _ = rx.recv_timeout(Duration::from_secs(2));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extrair_quantidade() {
+        assert_eq!(extrair_quantidade("PAINEL 200x150 HELANCA.tif"), 1);
+        assert_eq!(extrair_quantidade("PAINEL 200 x 150 HELANCA.tif"), 1);
+        assert_eq!(extrair_quantidade("CUIABA (L500 X A250).tif"), 1);
+        assert_eq!(extrair_quantidade("PAINEL 200x150 - 3x HELANCA.tif"), 3);
+        assert_eq!(extrair_quantidade("ARTE_5un_OXFORD.tif"), 5);
+        assert_eq!(extrair_quantidade("BANNER (x4).tif"), 4);
+        assert_eq!(extrair_quantidade("TESTE_QTD_12.tif"), 12);
     }
 }
