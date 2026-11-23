@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Ícones mobile gerados por `npm run icons` (app é só desktop)
+src-tauri/icons/android
+src-tauri/icons/ios
