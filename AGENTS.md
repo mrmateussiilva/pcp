@@ -102,7 +102,22 @@ Sempre rode `npm run build` / `npm.cmd run build` (após mudanças em `src/`) e 
 
 ---
 
-## 4. Padrão de Commits
+## 4. Deploy, Releases e Atualizações (GitHub Actions)
+
+- **Workflow Único (Release Windows):** O repositório possui exclusivamente o workflow `.github/workflows/release.yml`. **Não crie workflows de CI adicionais para push em branch** — commits enviados para a `main` não disparam builds no GitHub Actions, evitando execuções duplicadas e consumo desnecessário de minutos.
+- **Gatilho Estrito por Git Tag:** A compilação e publicação de instaladores Windows ocorre **apenas quando uma nova tag `v*` é enviada** (`push: tags: ['v*']`) ou via disparo manual no painel do GitHub (`workflow_dispatch`).
+- **Tag como Fonte da Verdade:** A versão é extraída diretamente da Git tag (`vX.Y.Z`). Durante o build no CI, o script `scripts/sync-version.mjs` atualiza `package.json`, `tauri.conf.json`, `Cargo.toml` e `Cargo.lock` automaticamente antes da compilação.
+- **In-App Updater (`UPD-00`):**
+  - Integração via `tauri-plugin-updater` e `tauri-plugin-process`.
+  - Assinatura criptográfica com Minisign: a chave pública reside em `tauri.conf.json` e a chave privada nas secrets do repositório (`TAURI_SIGNING_PRIVATE_KEY` e `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`).
+  - O workflow gera o instalador NSIS (`*-setup.exe`), MSI (`*.msi`) e o manifesto assinado `latest.json` na release do GitHub.
+  - No frontend, o hook `useUpdater` gerencia checagens automáticas (8s pós-abertura e a cada 30 min) e o modal `UpdateModal.tsx` (`Alt+U`) impede reinício acidental enquanto houver trabalhos de corte ou imagem ativos (*Busy Guard*).
+- **Instância Única:** O plugin `tauri-plugin-single-instance` no `lib.rs` assegura que uma segunda janela nunca seja aberta, trazendo a existente para foco e prevenindo conflitos nas portas de rede (`8765`, `8766`, `5050`) e múltiplos observadores de pasta.
+- **Ícones do Sistema:** O ícone-base do projeto é o vetor industrial `src-tauri/icons/app-icon.svg`. Para regenerar todos os tamanhos (`.ico`, `.icns`, PNGs), use `npm run icons`.
+
+---
+
+## 5. Padrão de Commits
 
 Use **Conventional Commits** em inglês ou português claro, separando commits por responsabilidade lógica:
 - `feat(escopo): ...` — nova funcionalidade ou módulo

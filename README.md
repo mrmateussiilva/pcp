@@ -119,6 +119,9 @@ O favicon da interface fica em `public/favicon.svg`.
 
 O workflow [`release.yml`](.github/workflows/release.yml) é acionado **exclusivamente quando uma nova tag `v*` é enviada** (ou via disparo manual no painel do GitHub). Ele compila a aplicação no Windows (`windows-latest`), assina os binários com Minisign, gera os instaladores NSIS (`*-setup.exe`) e MSI (`*.msi`), além do manifesto de atualização automática `latest.json`, publicando tudo diretamente no **GitHub Releases**.
 
+> [!IMPORTANT]
+> **Workflow único e sem duplicidade:** O repositório utiliza exclusivamente o workflow `release.yml`. Pushes normais na branch `main` não disparam compilações no GitHub Actions. O processo de build e publicação é acionado **apenas ao enviar uma nova Git tag (`v*`)**, garantindo que não haja jobs redundantes rodando em paralelo.
+
 ### Publicando uma nova versão (git tag)
 
 **A tag é a fonte da verdade da versão.** O workflow lê `vX.Y.Z` da tag e aplica em `package.json`, `tauri.conf.json`, `Cargo.toml` e `Cargo.lock` antes de compilar — então o nome do instalador, a versão em "Aplicativos instalados" e a release batem sempre com a tag.
