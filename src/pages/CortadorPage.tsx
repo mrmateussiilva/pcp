@@ -132,6 +132,27 @@ export function CortadorPage() {
       setMTipo(m.tipo || "vertical");
       setMCor(m.cor || "Preto");
       setMInverter(Boolean(m.inverter));
+
+      // Verifica se o Explorer enviou arquivos pré-selecionados para corte
+      const preRaw = sessionStorage.getItem("pcp-cortador-preselecionados");
+      if (preRaw) {
+        sessionStorage.removeItem("pcp-cortador-preselecionados");
+        try {
+          const pre = JSON.parse(preRaw) as { arquivos?: string[]; pasta?: string };
+          if (Array.isArray(pre.arquivos) && pre.arquivos.length > 0) {
+            setAOrigem("arquivos");
+            setAArquivos(pre.arquivos);
+            setMOrigem("arquivos");
+            setMArquivos(pre.arquivos);
+            if (pre.pasta) {
+              setAPasta(pre.pasta);
+              setMEntrada(pre.pasta);
+            }
+          }
+        } catch {
+          // ignora JSON inválido
+        }
+      }
     });
 
     invoke<boolean>("cortador_rodando").then(setRodando);

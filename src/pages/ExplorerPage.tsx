@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import { openPath } from "@tauri-apps/plugin-opener";
 import {
   AlertCircle,
@@ -29,6 +31,7 @@ import {
   Home,
   LayoutGrid,
   List,
+  Loader2,
   Monitor,
   PanelRight,
   Pencil,
@@ -37,12 +40,14 @@ import {
   RefreshCw,
   Scissors,
   Search,
+  Square,
   Star,
   Trash2,
   X,
 } from "lucide-react";
 import { PageHeader } from "../components/ui";
 import { usePageShortcuts } from "../hooks/useShortcuts";
+import { ModuloId } from "../modules/registry";
 
 interface ExplorerConfig {
   favoritos: string[];
@@ -101,6 +106,35 @@ interface ImagemPreviewInfo {
   modo_cor: string;
   tem_icc: boolean;
   miniatura_data_url: string | null;
+}
+
+interface CortadorSimItem {
+  arquivo: string;
+  largura_cm: number;
+  altura_cm: number;
+  dpi: number;
+  n_placas: number;
+  placas_cm: number[];
+  cidade: string | null;
+  erro: string | null;
+}
+
+interface CortadorSimulacao {
+  total_paineis: number;
+  total_placas: number;
+  itens: CortadorSimItem[];
+}
+
+const CUTTABLE_EXTS = new Set(["tif", "tiff", "png", "jpg", "jpeg"]);
+const RE_PLACA = / - P(\d+)\.[^.]+$/i;
+
+function extrairTagPlaca(nome: string): string | null {
+  const m = nome.match(RE_PLACA);
+  return m ? `P${m[1]}` : null;
+}
+
+function ehCortavel(item: ExplorerItem): boolean {
+  return !item.eh_pasta && CUTTABLE_EXTS.has(item.extensao) && !RE_PLACA.test(item.nome);
 }
 
 type SortKey = "nome" | "modificado" | "tipo" | "tamanho";
@@ -182,10 +216,10 @@ function nomeDaPasta(caminho: string): string {
   return partes[partes.length - 1] || caminho;
 }
 
-export function ExplorerPage() {
+export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => void }) {
   const [config, setConfig] = useState<ExplorerConfig>({
     favoritos: [],
-    modo_visao: "lista",
+    modo_visao: "grade",
     mostrar_ocultos: false,
     mostrar_preview: true,
     ultima_pasta: null,
@@ -195,6 +229,13 @@ export function ExplorerPage() {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [toast, setToast] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  // Cache de miniaturas e metadados RIP por caminho
+  const [thumbMap, setThumbMap] = useState<Record<string, ImagemPreviewInfo>>({});
+  const thumbMapRef = useRef<Record<string, ImagemPreviewInfo>>({});
+  useEffect(() => {
+    thumbMapRef.current = thumbMap;
+  }, [thumbMap]);
 
   // Histórico de navegação (Voltar / Avançar)
   const [historico, setHistorico] = useState<string[]>([]);
@@ -226,12 +267,36 @@ export function ExplorerPage() {
   // Menu de contexto
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; item: ExplorerItem | null } | null>(null);
 
-  // Modais (Nova pasta / Renomear / Confirmar exclusão)
+  // Modais (Nova pasta / Renomear / Confirmar exclusão / Cortar painéis)
   const [modalNovaPasta, setModalNovaPasta] = useState(false);
   const [novaPastaNome, setNovaPastaNome] = useState("");
   const [modalRenomear, setModalRenomear] = useState<ExplorerItem | null>(null);
   const [renomearNome, setRenomearNome] = useState("");
   const [modalExcluir, setModalExcluir] = useState<ExplorerItem[] | null>(null);
+
+  // Modal de Corte Direto de Painéis no Explorer
+  const [modalCortar, setModalCortar] = useState<ExplorerItem[] | null>(null);
+  const [cutModo, setCutModo] = useState<"Automático" | "Medidas personalizadas">("Automático");
+  const [cutGabarito, setCutGabarito] = useState("");
+  const [cutMedida, setCutMedida] = useState("150");
+  const [cutMedidasLista, setCutMedidasLista] = useState("140,150,125");
+  const [cutSobra, setCutSobra] = useState("0.5");
+  const [cutPad, setCutPad] = useState("1.0");
+  const [cutTipo, setCutTipo] = useState<"horizontal" | "vertical">("horizontal");
+  const [cutCor, setCutCor] = useState("Automática (uma por painel)");
+  const [cutInverter, setCutInverter] = useState(false);
+  const [cutCidade, setCutCidade] = useState(false);
+  const [cutCidadeCor, setCutCidadeCor] = useState("Preto");
+  const [cutCidadeLarg, setCutCidadeLarg] = useState("4.0");
+  const [cutCidadeAlt, setCutCidadeAlt] = useState("1.0");
+  const [cutCidadeMargem, setCutCidadeMargem] = useState("1.0");
+  const [cutOverrides, setCutOverrides] = useState<Record<string, string>>({});
+  const [cutSimulacao, setCutSimulacao] = useState<CortadorSimulacao | null>(null);
+  const [cutSimulando, setCutSimulando] = useState(false);
+  const [cutRodando, setCutRodando] = useState(false);
+  const [cutProgresso, setCutProgresso] = useState(0);
+  const [cutLogs, setCutLogs] = useState<string[]>([]);
+  const [cutErro, setCutErro] = useState<string | null>(null);
 
   const mostrarToast = useCallback((tipo: "ok" | "erro", texto: string) => {
     setToast({ tipo, texto });
@@ -304,7 +369,7 @@ export function ExplorerPage() {
         if (!ativo) return;
         const cfgNorm: ExplorerConfig = {
           favoritos: cfg.favoritos ?? [],
-          modo_visao: cfg.modo_visao === "grade" ? "grade" : "lista",
+          modo_visao: cfg.modo_visao === "lista" ? "lista" : "grade",
           mostrar_ocultos: !!cfg.mostrar_ocultos,
           mostrar_preview: cfg.mostrar_preview ?? true,
           ultima_pasta: cfg.ultima_pasta ?? null,
@@ -376,12 +441,69 @@ export function ExplorerPage() {
     return itensVisiveis.filter((i) => set.has(i.caminho));
   }, [itensVisiveis, selecionados]);
 
+  const paineisSelecionados = useMemo(
+    () => itensSelecionadosObj.filter(ehCortavel),
+    [itensSelecionadosObj]
+  );
+
   const itemUnico = itensSelecionadosObj.length === 1 ? itensSelecionadosObj[0] : null;
+
+  // Fila concorrente controlada (3 workers) para carregar miniaturas de todas as imagens visíveis na pasta,
+  // igual ao Windows Explorer, sem travar a rede Z:\
+  useEffect(() => {
+    const imagensParaCarregar = itensVisiveis.filter(
+      (it) => !it.eh_pasta && IMAGE_EXTS.has(it.extensao) && !thumbMapRef.current[it.caminho]
+    );
+    if (imagensParaCarregar.length === 0) return;
+
+    let cancelado = false;
+    let cursor = 0;
+    const CONCORRENCIA = 3;
+
+    const worker = async () => {
+      while (!cancelado) {
+        const idx = cursor++;
+        if (idx >= imagensParaCarregar.length) break;
+        const alvo = imagensParaCarregar[idx];
+        if (thumbMapRef.current[alvo.caminho]) continue;
+        try {
+          const info = await invoke<ImagemPreviewInfo>("explorer_inspecionar_imagem", {
+            caminho: alvo.caminho,
+          });
+          if (cancelado) break;
+          setThumbMap((prev) => {
+            if (prev[alvo.caminho]) return prev;
+            return { ...prev, [alvo.caminho]: info };
+          });
+        } catch {
+          // ignora arquivo corrompido ou inacessível
+        }
+      }
+    };
+
+    const workers = Array.from(
+      { length: Math.min(CONCORRENCIA, imagensParaCarregar.length) },
+      () => worker()
+    );
+    Promise.all(workers).catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, [itensVisiveis]);
 
   // Carrega pré-visualização e telemetria RIP quando 1 imagem está selecionada
   useEffect(() => {
     if (!config.mostrar_preview || !itemUnico || itemUnico.eh_pasta || !IMAGE_EXTS.has(itemUnico.extensao)) {
       setPreviewInfo(null);
+      setPreviewErro(null);
+      setPreviewLoading(false);
+      return;
+    }
+
+    const cached = thumbMap[itemUnico.caminho];
+    if (cached) {
+      setPreviewInfo(cached);
       setPreviewErro(null);
       setPreviewLoading(false);
       return;
@@ -394,7 +516,10 @@ export function ExplorerPage() {
 
     invoke<ImagemPreviewInfo>("explorer_inspecionar_imagem", { caminho: itemUnico.caminho })
       .then((info) => {
-        if (!cancelado) setPreviewInfo(info);
+        if (!cancelado) {
+          setPreviewInfo(info);
+          setThumbMap((prev) => ({ ...prev, [itemUnico.caminho]: info }));
+        }
       })
       .catch((e) => {
         if (!cancelado) setPreviewErro(String(e));
@@ -406,7 +531,7 @@ export function ExplorerPage() {
     return () => {
       cancelado = true;
     };
-  }, [config.mostrar_preview, itemUnico]);
+  }, [config.mostrar_preview, itemUnico, thumbMap]);
 
   // Fecha menu de contexto ao clicar fora
   useEffect(() => {
@@ -450,6 +575,255 @@ export function ExplorerPage() {
     }
     invoke<ExplorerRaiz[]>("explorer_listar_raizes").then(setRaizes).catch(() => {});
   }, [listagem, carregarDiretorio]);
+
+  // Ouvintes do Cortador para execução de corte direto no Explorer
+  useEffect(() => {
+    const unSt = listen<boolean>("cortador-status", (e) => setCutRodando(e.payload));
+    const unProg = listen<{ current: number; total: number }>("cortador-progress", (e) => {
+      setCutProgresso(e.payload.total > 0 ? (e.payload.current / e.payload.total) * 100 : 0);
+    });
+    const unLog = listen<string>("cortador-log", (e) => {
+      setCutLogs((prev) => [...prev.slice(-300), e.payload]);
+    });
+    const unDone = listen<{ ok: number; err: number; cancelled: boolean }>("cortador-done", (e) => {
+      if (e.payload.ok > 0) {
+        mostrarToast("ok", `Corte finalizado: ${e.payload.ok} painel(is) fatiado(s) com sucesso!`);
+        atualizar();
+      } else if (e.payload.err > 0) {
+        mostrarToast("erro", `Corte concluído com ${e.payload.err} erro(s).`);
+      }
+    });
+    return () => {
+      unSt.then((fn) => fn());
+      unProg.then((fn) => fn());
+      unLog.then((fn) => fn());
+      unDone.then((fn) => fn());
+    };
+  }, [atualizar, mostrarToast]);
+
+  const abrirModalCorte = useCallback(
+    async (alvos?: ExplorerItem[]) => {
+      const lista = (alvos ?? paineisSelecionados).filter(ehCortavel);
+      if (lista.length === 0) {
+        mostrarToast("erro", "Selecione ao menos um painel (imagem ainda não cortada) para fatiar.");
+        return;
+      }
+      setCutErro(null);
+      setCutLogs([]);
+      setCutProgresso(0);
+      setModalCortar(lista);
+
+      try {
+        const cfg = await invoke<Record<string, any>>("cortador_get_config");
+        if (cfg.modo === "Medidas personalizadas" || cfg.modo === "Automático") {
+          setCutModo(cfg.modo);
+        }
+        const a = cfg.auto || {};
+        setCutGabarito(a.gabarito || cfg.medidas?.gabarito || "");
+        setCutMedida(String(a.medida ?? 150));
+        setCutSobra(String(a.sobreposicao ?? 0.5));
+        setCutPad(String(a.pad ?? 1.0));
+        setCutTipo(a.tipo === "vertical" ? "vertical" : "horizontal");
+        setCutCor(a.cor || "Automática (uma por painel)");
+        setCutInverter(Boolean(a.inverter));
+        setCutCidade(Boolean(a.cidade));
+        setCutCidadeCor(a.cidade_cor || "Preto");
+        setCutCidadeLarg(String(a.cidade_largura ?? 4.0));
+        setCutCidadeAlt(String(a.cidade_altura ?? 1.0));
+        setCutCidadeMargem(String(a.cidade_margem ?? 1.0));
+        setCutOverrides(a.overrides || {});
+        const m = cfg.medidas || {};
+        if (m.medidas) {
+          setCutMedidasLista(Array.isArray(m.medidas) ? m.medidas.join(",") : String(m.medidas));
+        }
+      } catch {
+        // usa padrões
+      }
+    },
+    [paineisSelecionados, mostrarToast]
+  );
+
+  // Simula automaticamente sempre que abrir o modal ou alterar parâmetros de corte
+  useEffect(() => {
+    if (!modalCortar || modalCortar.length === 0) {
+      setCutSimulacao(null);
+      return;
+    }
+    let cancelado = false;
+    setCutSimulando(true);
+    const pastaAtual = listagem?.caminho || "";
+    const arquivos = modalCortar.map((i) => i.caminho);
+
+    const runSim = async () => {
+      try {
+        if (cutModo === "Automático") {
+          const res = await invoke<CortadorSimulacao>("cortador_simular_auto", {
+            payload: {
+              pasta: pastaAtual,
+              arquivos,
+              gabarito: cutGabarito,
+              saida: "",
+              medida: Math.max(1, Number(cutMedida.replace(",", ".")) || 150),
+              sobreposicao: Math.max(0, Number(cutSobra.replace(",", ".")) || 0.5),
+              pad: Math.max(0, Number(cutPad.replace(",", ".")) || 1.0),
+              tipo: cutTipo,
+              workers: 4,
+              cor: cutCor,
+              inverter: cutInverter,
+              mover: false,
+              cidade: cutCidade,
+              cidade_cor: cutCidadeCor,
+              cidade_largura: Number(cutCidadeLarg.replace(",", ".")) || 4.0,
+              cidade_altura: Number(cutCidadeAlt.replace(",", ".")) || 1.0,
+              cidade_margem: Number(cutCidadeMargem.replace(",", ".")) || 1.0,
+              overrides: cutOverrides,
+            },
+          });
+          if (!cancelado) setCutSimulacao(res);
+        } else {
+          const lista = cutMedidasLista
+            .split(",")
+            .map((s) => Number(s.trim().replace(",", ".")))
+            .filter((n) => !Number.isNaN(n) && n > 0);
+          if (lista.length === 0) {
+            if (!cancelado) setCutSimulacao(null);
+            return;
+          }
+          const res = await invoke<CortadorSimulacao>("cortador_simular_medidas", {
+            payload: {
+              entrada: pastaAtual,
+              arquivos,
+              saida: "",
+              gabarito: cutGabarito,
+              medidas: lista,
+              sobreposicao: Math.max(0, Number(cutSobra.replace(",", ".")) || 0.5),
+              pad: Math.max(0, Number(cutPad.replace(",", ".")) || 1.0),
+              tipo: cutTipo,
+              cor: cutCor.startsWith("Automática") ? "Preto" : cutCor,
+              inverter: cutInverter,
+              mover: false,
+            },
+          });
+          if (!cancelado) setCutSimulacao(res);
+        }
+      } catch (e) {
+        if (!cancelado) setCutErro(String(e));
+      } finally {
+        if (!cancelado) setCutSimulando(false);
+      }
+    };
+    runSim();
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    modalCortar,
+    listagem?.caminho,
+    cutModo,
+    cutGabarito,
+    cutMedida,
+    cutMedidasLista,
+    cutSobra,
+    cutPad,
+    cutTipo,
+    cutCor,
+    cutInverter,
+    cutCidade,
+    cutCidadeCor,
+    cutCidadeLarg,
+    cutCidadeAlt,
+    cutCidadeMargem,
+    cutOverrides,
+  ]);
+
+  const selecionarGabaritoCorte = async () => {
+    const f = await open({
+      multiple: false,
+      defaultPath: cutGabarito || listagem?.caminho || undefined,
+      filters: [{ name: "Imagens", extensions: ["png", "tif", "tiff", "jpg", "jpeg"] }],
+    });
+    if (typeof f === "string") setCutGabarito(f);
+  };
+
+  const executarCorteDireto = async () => {
+    if (!modalCortar || modalCortar.length === 0 || cutRodando) return;
+    if (!cutGabarito.trim()) {
+      setCutErro("Selecione o arquivo de Gabarito antes de cortar.");
+      return;
+    }
+    setCutErro(null);
+    setCutLogs([]);
+    setCutProgresso(0);
+
+    const pastaAtual = listagem?.caminho || "";
+    const arquivos = modalCortar.map((i) => i.caminho);
+
+    try {
+      if (cutModo === "Automático") {
+        const autoPayload = {
+          pasta: pastaAtual,
+          arquivos,
+          gabarito: cutGabarito.trim(),
+          saida: "",
+          medida: Math.max(1, Number(cutMedida.replace(",", ".")) || 150),
+          sobreposicao: Math.max(0, Number(cutSobra.replace(",", ".")) || 0.5),
+          pad: Math.max(0, Number(cutPad.replace(",", ".")) || 1.0),
+          tipo: cutTipo,
+          workers: 4,
+          cor: cutCor,
+          inverter: cutInverter,
+          mover: false,
+          cidade: cutCidade,
+          cidade_cor: cutCidadeCor,
+          cidade_largura: Number(cutCidadeLarg.replace(",", ".")) || 4.0,
+          cidade_altura: Number(cutCidadeAlt.replace(",", ".")) || 1.0,
+          cidade_margem: Number(cutCidadeMargem.replace(",", ".")) || 1.0,
+          overrides: cutOverrides,
+        };
+        await invoke("cortador_executar_auto", { payload: autoPayload });
+      } else {
+        const lista = cutMedidasLista
+          .split(",")
+          .map((s) => Number(s.trim().replace(",", ".")))
+          .filter((n) => !Number.isNaN(n) && n > 0);
+        if (lista.length === 0) {
+          setCutErro("Informe ao menos uma medida válida separada por vírgula (ex: 140,150,125).");
+          return;
+        }
+        await invoke("cortador_executar_medidas", {
+          payload: {
+            entrada: pastaAtual,
+            arquivos,
+            saida: "",
+            gabarito: cutGabarito.trim(),
+            medidas: lista,
+            sobreposicao: Math.max(0, Number(cutSobra.replace(",", ".")) || 0.5),
+            pad: Math.max(0, Number(cutPad.replace(",", ".")) || 1.0),
+            tipo: cutTipo,
+            cor: cutCor.startsWith("Automática") ? "Preto" : cutCor,
+            inverter: cutInverter,
+            mover: false,
+          },
+        });
+      }
+    } catch (e) {
+      setCutErro(String(e));
+    }
+  };
+
+  const abrirNaAbaCortador = (alvos?: ExplorerItem[]) => {
+    const lista = (alvos ?? modalCortar ?? paineisSelecionados).filter(ehCortavel);
+    if (lista.length === 0) return;
+    sessionStorage.setItem(
+      "pcp-cortador-preselecionados",
+      JSON.stringify({
+        arquivos: lista.map((i) => i.caminho),
+        pasta: listagem?.caminho || "",
+      })
+    );
+    setModalCortar(null);
+    onNavigate?.("cortador");
+  };
 
   const abrirItem = useCallback(
     async (item: ExplorerItem) => {
@@ -774,6 +1148,16 @@ export function ExplorerPage() {
       action: irAcima,
       allowInInput: false,
     },
+    {
+      id: "exp-cut-panel",
+      combo: "ctrl+e",
+      keys: "Ctrl+E",
+      label: "Cortar Painel(is) Selecionado(s)",
+      action: () => {
+        if (paineisSelecionados.length > 0) abrirModalCorte(paineisSelecionados);
+      },
+      allowInInput: false,
+    },
   ]);
 
   // Navegação por setas (↑/↓) e Enter na lista de arquivos
@@ -1077,6 +1461,26 @@ export function ExplorerPage() {
               <Trash2 className="w-3.5 h-3.5" />
               <span>EXCLUIR</span>
             </button>
+
+            <span className="h-4 w-px bg-slate-200 dark:bg-zinc-800 mx-0.5" />
+
+            {/* Ação de Produção: Cortar Painéis direto pelo Explorer */}
+            <button
+              type="button"
+              onClick={() => abrirModalCorte(paineisSelecionados)}
+              disabled={paineisSelecionados.length === 0 || operando}
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded border font-bold transition-all cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed ${
+                paineisSelecionados.length > 0
+                  ? "border-emerald-600 bg-emerald-600 hover:bg-emerald-500 text-white shadow-2xs"
+                  : "border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400"
+              }`}
+              title="Cortar painel(is) selecionado(s) direto nesta pasta sem mover arquivos (Ctrl+E)"
+            >
+              <Scissors className="w-3.5 h-3.5" />
+              <span>
+                CORTAR PAINEL{paineisSelecionados.length > 0 ? ` (${paineisSelecionados.length})` : ""}
+              </span>
+            </button>
           </div>
 
           <div className="flex items-center gap-1">
@@ -1377,6 +1781,8 @@ export function ExplorerPage() {
                     itensVisiveis.map((item) => {
                       const sel = selecionados.includes(item.caminho);
                       const recortado = clipboard?.mover && clipboard.caminhos.includes(item.caminho);
+                      const thumbInfo = thumbMap[item.caminho];
+                      const tagPlaca = extrairTagPlaca(item.nome);
                       return (
                         <tr
                           key={item.caminho}
@@ -1401,9 +1807,42 @@ export function ExplorerPage() {
                           } ${recortado || item.oculto ? "opacity-55" : ""}`}
                         >
                           <td className="py-1.5 pl-3 pr-2">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <ItemIcon item={item} className="w-4 h-4 shrink-0" />
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={sel}
+                                onChange={() => {}}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelecionados((prev) =>
+                                    prev.includes(item.caminho)
+                                      ? prev.filter((c) => c !== item.caminho)
+                                      : [...prev, item.caminho]
+                                  );
+                                  setUltimoAnchor(item.caminho);
+                                }}
+                                className="rounded accent-blue-600 cursor-pointer shrink-0"
+                              />
+                              {thumbInfo?.miniatura_data_url ? (
+                                <img
+                                  src={thumbInfo.miniatura_data_url}
+                                  alt={item.nome}
+                                  className="w-7 h-7 object-contain rounded-xs bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shrink-0"
+                                />
+                              ) : (
+                                <ItemIcon item={item} className="w-4 h-4 shrink-0" />
+                              )}
                               <span className="truncate font-medium">{item.nome}</span>
+                              {tagPlaca && (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-[9px] font-mono font-bold text-amber-800 dark:text-amber-300 shrink-0">
+                                  {tagPlaca}
+                                </span>
+                              )}
+                              {thumbInfo && (
+                                <span className="text-[10px] font-mono tabular-nums text-blue-600 dark:text-blue-400 shrink-0">
+                                  {thumbInfo.largura_cm.toFixed(0)}×{thumbInfo.altura_cm.toFixed(0)}cm
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="py-1.5 px-2 font-mono text-[11px] tabular-nums text-slate-500 dark:text-zinc-400 whitespace-nowrap">
@@ -1423,17 +1862,22 @@ export function ExplorerPage() {
               </table>
             </div>
           ) : (
-            /* Modo Grade de Ícones */
+            /* Modo Grade de Miniaturas (Estilo Windows Explorer) */
             <div className="flex-1 overflow-y-auto p-3">
               {itensVisiveis.length === 0 ? (
                 <div className="py-12 text-center font-mono text-xs text-slate-400 dark:text-zinc-500">
                   {carregando ? "Carregando diretório..." : busca ? "Nenhum item corresponde ao filtro." : "Esta pasta está vazia."}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3">
                   {itensVisiveis.map((item) => {
                     const sel = selecionados.includes(item.caminho);
                     const recortado = clipboard?.mover && clipboard.caminhos.includes(item.caminho);
+                    const thumbInfo = thumbMap[item.caminho];
+                    const tagPlaca = extrairTagPlaca(item.nome);
+                    const cortavel = ehCortavel(item);
+                    const isImg = !item.eh_pasta && IMAGE_EXTS.has(item.extensao);
+
                     return (
                       <div
                         key={item.caminho}
@@ -1451,21 +1895,94 @@ export function ExplorerPage() {
                           }
                           setCtxMenu({ x: e.clientX, y: e.clientY, item });
                         }}
-                        className={`p-2.5 rounded border flex flex-col items-center text-center gap-1.5 cursor-pointer transition-colors ${
+                        className={`group relative p-2 rounded-md border flex flex-col items-center text-center gap-1.5 cursor-pointer transition-all ${
                           sel
-                            ? "border-blue-400 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/40"
-                            : "border-transparent hover:border-slate-200 dark:hover:border-zinc-800 hover:bg-slate-50 dark:hover:bg-zinc-900/60"
+                            ? "border-blue-500 dark:border-blue-500 bg-blue-50/80 dark:bg-blue-950/50 ring-1 ring-blue-500/40 shadow-xs"
+                            : "border-slate-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/40 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-50/80 dark:hover:bg-zinc-900"
                         } ${recortado || item.oculto ? "opacity-55" : ""}`}
-                        title={item.nome}
+                        title={
+                          thumbInfo
+                            ? `${item.nome}\n${thumbInfo.largura_cm.toFixed(1)} × ${thumbInfo.altura_cm.toFixed(1)} cm (${thumbInfo.dpi_x} DPI)`
+                            : item.nome
+                        }
                       >
-                        <ItemIcon item={item} className="w-9 h-9" />
-                        <span className="text-[11px] font-medium text-slate-800 dark:text-zinc-200 line-clamp-2 break-all leading-tight">
+                        {/* Checkbox de seleção rápida (estilo Windows Explorer) */}
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelecionados((prev) =>
+                              prev.includes(item.caminho)
+                                ? prev.filter((c) => c !== item.caminho)
+                                : [...prev, item.caminho]
+                            );
+                            setUltimoAnchor(item.caminho);
+                          }}
+                          className={`absolute top-2 left-2 z-10 w-5 h-5 rounded flex items-center justify-center border transition-opacity ${
+                            sel
+                              ? "opacity-100 bg-blue-600 border-blue-600 text-white"
+                              : "opacity-0 group-hover:opacity-100 bg-white/90 dark:bg-zinc-900/90 border-slate-300 dark:border-zinc-600 text-transparent hover:border-blue-500"
+                          }`}
+                          title="Selecionar item"
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </div>
+
+                        {/* Badge de Placa já cortada (P01, P02...) ou botão rápido de cortar no hover */}
+                        {tagPlaca ? (
+                          <span className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded bg-amber-500/90 text-white font-mono text-[9px] font-bold shadow-xs">
+                            {tagPlaca}
+                          </span>
+                        ) : cortavel ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelecionados([item.caminho]);
+                              abrirModalCorte([item]);
+                            }}
+                            className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 px-1.5 py-0.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-[9px] font-bold flex items-center gap-1 shadow-sm cursor-pointer transition-opacity"
+                            title="Cortar este painel agora"
+                          >
+                            <Scissors className="w-2.5 h-2.5" />
+                            <span>CORTAR</span>
+                          </button>
+                        ) : null}
+
+                        {/* Quadro da Miniatura Proporcional */}
+                        <div className="w-full h-28 rounded bg-slate-100/70 dark:bg-zinc-950/70 border border-slate-100 dark:border-zinc-800/60 flex items-center justify-center p-1.5 overflow-hidden">
+                          {isImg && thumbInfo?.miniatura_data_url ? (
+                            <img
+                              src={thumbInfo.miniatura_data_url}
+                              alt={item.nome}
+                              className="max-w-full max-h-full object-contain drop-shadow-xs select-none"
+                              loading="lazy"
+                            />
+                          ) : isImg && !thumbInfo ? (
+                            <div className="flex flex-col items-center justify-center gap-1 text-slate-400 dark:text-zinc-600">
+                              <ItemIcon item={item} className="w-8 h-8 opacity-60 animate-pulse" />
+                              <span className="text-[9px] font-mono">...</span>
+                            </div>
+                          ) : (
+                            <ItemIcon item={item} className="w-12 h-12" />
+                          )}
+                        </div>
+
+                        {/* Nome do Arquivo */}
+                        <span className="w-full text-[11px] font-medium text-slate-800 dark:text-zinc-200 line-clamp-2 break-words leading-tight px-0.5">
                           {item.nome}
                         </span>
+
+                        {/* Rodapé com Dimensões em cm (se imagem) e Tamanho */}
                         {!item.eh_pasta && (
-                          <span className="text-[10px] font-mono tabular-nums text-slate-400 dark:text-zinc-500">
-                            {formatBytes(item.tamanho_bytes)}
-                          </span>
+                          <div className="flex items-center justify-center gap-1.5 text-[10px] font-mono tabular-nums text-slate-500 dark:text-zinc-400 mt-auto">
+                            {thumbInfo && (
+                              <span className="font-semibold text-blue-700 dark:text-blue-400">
+                                {thumbInfo.largura_cm.toFixed(0)}×{thumbInfo.altura_cm.toFixed(0)}cm
+                              </span>
+                            )}
+                            {thumbInfo && <span>•</span>}
+                            <span>{formatBytes(item.tamanho_bytes)}</span>
+                          </div>
                         )}
                       </div>
                     );
@@ -1488,7 +2005,7 @@ export function ExplorerPage() {
                 Selecione um arquivo ou pasta para inspecionar.
               </div>
             ) : itensSelecionadosObj.length > 1 ? (
-              <div className="space-y-2 text-xs font-mono">
+              <div className="space-y-2.5 text-xs font-mono">
                 <div className="p-3 rounded border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 space-y-1.5">
                   <div className="font-bold text-slate-900 dark:text-zinc-100">
                     {itensSelecionadosObj.length} itens selecionados
@@ -1501,6 +2018,17 @@ export function ExplorerPage() {
                     Tamanho somado: <b>{formatBytes(tamanhoSelecionados)}</b>
                   </div>
                 </div>
+
+                {paineisSelecionados.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => abrirModalCorte(paineisSelecionados)}
+                    className="w-full py-2 px-3 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-colors"
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                    <span>CORTAR {paineisSelecionados.length} PAINEL(IS)</span>
+                  </button>
+                )}
               </div>
             ) : itemUnico ? (
               <div className="space-y-3">
@@ -1566,6 +2094,17 @@ export function ExplorerPage() {
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 </div>
+
+                {ehCortavel(itemUnico) && (
+                  <button
+                    type="button"
+                    onClick={() => abrirModalCorte([itemUnico])}
+                    className="w-full py-2 px-3 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-colors"
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                    <span>CORTAR ESTE PAINEL</span>
+                  </button>
+                )}
 
                 {/* Metadados RIP (para imagens) */}
                 {previewInfo && (
@@ -1692,6 +2231,33 @@ export function ExplorerPage() {
               >
                 Abrir no Explorer do SO
               </button>
+              {(paineisSelecionados.length > 0 || ehCortavel(ctxMenu.item)) && (
+                <>
+                  <div className="my-1 border-t border-slate-100 dark:border-zinc-800" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const alvos =
+                        paineisSelecionados.length > 0
+                          ? paineisSelecionados
+                          : ehCortavel(ctxMenu.item!)
+                          ? [ctxMenu.item!]
+                          : [];
+                      setCtxMenu(null);
+                      abrirModalCorte(alvos);
+                    }}
+                    className="w-full px-3 py-1.5 text-left bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 font-bold flex items-center justify-between cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Scissors className="w-3.5 h-3.5" />
+                      <span>
+                        Cortar Painel{paineisSelecionados.length > 1 ? ` (${paineisSelecionados.length})` : ""}
+                      </span>
+                    </span>
+                    <span className="text-[10px] opacity-75">Ctrl+E</span>
+                  </button>
+                </>
+              )}
               <div className="my-1 border-t border-slate-100 dark:border-zinc-800" />
               <button
                 type="button"
@@ -1955,6 +2521,291 @@ export function ExplorerPage() {
               >
                 EXCLUIR AGORA
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cortar Painel(is) Direto pelo Explorer */}
+      {modalCortar && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !cutRodando) setModalCortar(null);
+          }}
+        >
+          <div className="w-full max-w-2xl rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-[#111114] shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+            <div className="px-4 py-2.5 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#0c0c0e] flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-mono font-bold text-slate-900 dark:text-zinc-100">
+                <Scissors className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>CORTAR PAINÉIS SELECIONADOS ({modalCortar.length})</span>
+              </div>
+              <button
+                type="button"
+                disabled={cutRodando}
+                onClick={() => setModalCortar(null)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 cursor-pointer disabled:opacity-40"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-3.5 text-xs">
+              {cutErro && (
+                <div className="px-3 py-2 rounded border border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 font-mono text-[11px]">
+                  ERRO // {cutErro}
+                </div>
+              )}
+
+              {/* Seletor de Modo: Automático vs Medidas Personalizadas */}
+              <div className="grid grid-cols-2 gap-1 bg-slate-100 dark:bg-zinc-900 p-0.5 rounded border border-slate-200 dark:border-zinc-800 font-mono">
+                {(["Automático", "Medidas personalizadas"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    disabled={cutRodando}
+                    onClick={() => setCutModo(m)}
+                    className={`py-1.5 rounded text-xs cursor-pointer transition-colors ${
+                      cutModo === m
+                        ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-bold shadow-2xs"
+                        : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {m.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Gabarito */}
+              <div className="space-y-1">
+                <label className="block font-mono text-[10px] font-semibold text-slate-500 dark:text-zinc-400">
+                  ARQUIVO DE GABARITO (COSTURA / MARCAÇÃO)
+                </label>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={cutGabarito}
+                    disabled={cutRodando}
+                    onChange={(e) => setCutGabarito(e.target.value)}
+                    placeholder="Selecione o arquivo gabarito.tif / gabarito.png..."
+                    className="flex-1 rounded border border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 px-2.5 py-1.5 font-mono text-xs text-slate-900 dark:text-zinc-100"
+                  />
+                  <button
+                    type="button"
+                    disabled={cutRodando}
+                    onClick={selecionarGabaritoCorte}
+                    className="px-3 py-1.5 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 font-mono text-xs cursor-pointer"
+                  >
+                    PROCURAR
+                  </button>
+                </div>
+              </div>
+
+              {/* Parâmetros de Corte */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 font-mono">
+                {cutModo === "Automático" ? (
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+                      LARGURA PLACA (cm)
+                    </label>
+                    <input
+                      type="text"
+                      value={cutMedida}
+                      disabled={cutRodando}
+                      onChange={(e) => setCutMedida(e.target.value)}
+                      className="w-full rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100"
+                    />
+                  </div>
+                ) : (
+                  <div className="col-span-2">
+                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+                      MEDIDAS DAS PLACAS (cm, sep. por vírgula)
+                    </label>
+                    <input
+                      type="text"
+                      value={cutMedidasLista}
+                      disabled={cutRodando}
+                      onChange={(e) => setCutMedidasLista(e.target.value)}
+                      placeholder="Ex: 140, 150, 125"
+                      className="w-full rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+                    ORIENTAÇÃO
+                  </label>
+                  <select
+                    value={cutTipo}
+                    disabled={cutRodando}
+                    onChange={(e) => setCutTipo(e.target.value === "vertical" ? "vertical" : "horizontal")}
+                    className="w-full rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2 py-1.5 text-xs text-slate-900 dark:text-zinc-100"
+                  >
+                    <option value="horizontal">horizontal</option>
+                    <option value="vertical">vertical</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+                    SOBREPOSIÇÃO (cm)
+                  </label>
+                  <input
+                    type="text"
+                    value={cutSobra}
+                    disabled={cutRodando}
+                    onChange={(e) => setCutSobra(e.target.value)}
+                    className="w-full rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100"
+                  />
+                </div>
+
+                {cutModo === "Automático" && (
+                  <div>
+                    <label className="block text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mb-1">
+                      PADDING (cm)
+                    </label>
+                    <input
+                      type="text"
+                      value={cutPad}
+                      disabled={cutRodando}
+                      onChange={(e) => setCutPad(e.target.value)}
+                      className="w-full rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4 pt-1 font-mono text-[11px]">
+                <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={cutInverter}
+                    disabled={cutRodando}
+                    onChange={(e) => setCutInverter(e.target.checked)}
+                    className="rounded accent-blue-600"
+                  />
+                  <span>Inverter corte (180°)</span>
+                </label>
+
+                {cutModo === "Automático" && (
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-700 dark:text-zinc-300">
+                    <input
+                      type="checkbox"
+                      checked={cutCidade}
+                      disabled={cutRodando}
+                      onChange={(e) => setCutCidade(e.target.checked)}
+                      className="rounded accent-blue-600"
+                    />
+                    <span>Escrever cidade na última placa</span>
+                  </label>
+                )}
+              </div>
+
+              {/* Simulação das Placas que serão geradas */}
+              <div className="rounded border border-slate-200 dark:border-zinc-800 overflow-hidden">
+                <div className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between font-mono text-[10px] font-bold text-slate-600 dark:text-zinc-400">
+                  <span>
+                    SIMULAÇÃO DE FATIAMENTO (AS PLACAS - P01, - P02 SERÃO SALVAS NESTA MESMA PASTA)
+                  </span>
+                  {cutSimulando && <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />}
+                </div>
+                <div className="max-h-44 overflow-y-auto">
+                  <table className="w-full text-left border-collapse font-mono text-[11px]">
+                    <thead className="bg-slate-50/60 dark:bg-zinc-900/50 border-b border-slate-100 dark:border-zinc-800 text-[10px] text-slate-500">
+                      <tr>
+                        <th className="py-1.5 px-3">PAINEL</th>
+                        <th className="py-1.5 px-2">DIMENSÃO (CORTE)</th>
+                        <th className="py-1.5 px-2">DPI</th>
+                        <th className="py-1.5 px-3">PLACAS GERADAS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                      {(cutSimulacao?.itens || []).map((it, idx) => (
+                        <tr key={idx}>
+                          <td className="py-1.5 px-3 font-semibold text-slate-800 dark:text-zinc-200 truncate max-w-52">
+                            {it.arquivo}
+                          </td>
+                          {it.erro ? (
+                            <td colSpan={3} className="py-1.5 px-2 text-red-600 dark:text-red-400">
+                              {it.erro}
+                            </td>
+                          ) : (
+                            <>
+                              <td className="py-1.5 px-2 tabular-nums text-slate-600 dark:text-zinc-300">
+                                {it.largura_cm.toFixed(1)} × {it.altura_cm.toFixed(1)} cm
+                              </td>
+                              <td className="py-1.5 px-2 tabular-nums text-slate-500">{it.dpi}</td>
+                              <td className="py-1.5 px-3 tabular-nums text-emerald-700 dark:text-emerald-400 font-semibold">
+                                {it.n_placas}x ({it.placas_cm.join(" + ")} cm)
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Progresso e Logs quando estiver executando */}
+              {(cutRodando || cutLogs.length > 0) && (
+                <div className="space-y-2">
+                  <div className="h-1.5 rounded bg-slate-200 dark:bg-zinc-800 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-600 transition-all duration-200"
+                      style={{ width: `${cutProgresso}%` }}
+                    />
+                  </div>
+                  <div className="max-h-28 overflow-y-auto rounded bg-slate-950 text-slate-200 p-2 font-mono text-[11px] space-y-0.5">
+                    {cutLogs.map((l, idx) => (
+                      <div key={idx}>{l}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-4 py-2.5 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#0c0c0e] flex items-center justify-between gap-2 text-xs font-mono">
+              <button
+                type="button"
+                disabled={cutRodando}
+                onClick={() => abrirNaAbaCortador(modalCortar)}
+                className="px-3 py-1.5 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 cursor-pointer disabled:opacity-40"
+                title="Abrir estes arquivos na aba completa do Cortador de Painéis"
+              >
+                ABRIR NA ABA CORTADOR
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={cutRodando}
+                  onClick={() => setModalCortar(null)}
+                  className="px-3 py-1.5 rounded border border-slate-300 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer disabled:opacity-40"
+                >
+                  FECHAR
+                </button>
+                {cutRodando ? (
+                  <button
+                    type="button"
+                    onClick={() => invoke("cortador_cancelar")}
+                    className="px-4 py-1.5 rounded bg-red-600 hover:bg-red-500 text-white font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Square className="w-3.5 h-3.5" />
+                    <span>CANCELAR</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={executarCorteDireto}
+                    className="px-4 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Scissors className="w-3.5 h-3.5" />
+                    <span>EXECUTAR CORTE NESTA PASTA</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

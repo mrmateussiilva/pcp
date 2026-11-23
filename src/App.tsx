@@ -151,8 +151,8 @@ function AppContent() {
         bolsinhas: st.varrendo
           ? { text: "VARRENDO...", cor: "amber" }
           : st.monitorando
-          ? { text: "WATCHER ATIVO", cor: "green" }
-          : undefined,
+            ? { text: "WATCHER ATIVO", cor: "green" }
+            : undefined,
       }));
     });
     invoke<{ rodando: boolean; porta: number }>("calandragem_status").then((st) => {
@@ -200,8 +200,8 @@ function AppContent() {
           bolsinhas: e.payload.varrendo
             ? { text: "VARRENDO...", cor: "amber" }
             : e.payload.monitorando
-            ? { text: "WATCHER ATIVO", cor: "green" }
-            : undefined,
+              ? { text: "WATCHER ATIVO", cor: "green" }
+              : undefined,
         }));
       }
     );
@@ -219,8 +219,8 @@ function AppContent() {
           shopee: e.payload.executando
             ? { text: "RENDERIZANDO...", cor: "amber" }
             : e.payload.monitorando
-            ? { text: "WATCHER ATIVO", cor: "green" }
-            : undefined,
+              ? { text: "WATCHER ATIVO", cor: "green" }
+              : undefined,
         }));
       }
     );
@@ -384,307 +384,290 @@ function AppContent() {
 
   return (
     <ShortcutProvider disabled={paletteOpen || helpOpen || updaterOpen}>
-    <div className="flex h-screen w-screen overflow-hidden bg-[#f4f5f8] dark:bg-[#09090b] text-slate-800 dark:text-zinc-200 antialiased select-none font-sans flex-col">
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Sidebar Técnica Industrial */}
-        <aside
-          className={`${
-            sidebarCollapsed ? "w-[54px]" : "w-[224px]"
-          } shrink-0 bg-white dark:bg-[#0e0e11] border-r border-slate-200 dark:border-zinc-800 flex flex-col justify-between transition-[width] duration-150`}
-        >
-          <div className="flex flex-col min-h-0">
-            {/* Header da Barra Lateral */}
-            <div
-              className={`${
-                sidebarCollapsed ? "px-2 py-2.5 justify-center" : "px-3 py-3 justify-between"
-              } border-b border-slate-200 dark:border-zinc-800 flex items-center`}
-            >
-              {!sidebarCollapsed && (
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-5 h-5 shrink-0 rounded border border-slate-400 dark:border-zinc-700 bg-slate-900 dark:bg-zinc-100 flex items-center justify-center text-white dark:text-slate-900">
-                    <Terminal className="w-3 h-3" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold tracking-tight text-slate-900 dark:text-zinc-100 leading-none truncate">
-                      PCP CENTRAL
-                    </div>
-                    <div className="text-[9px] font-mono text-slate-500 dark:text-zinc-500 tracking-wider truncate">
-                      SUBLIMAÇÃO // RIP
-                    </div>
-                  </div>
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={toggleSidebar}
-                className="p-1 rounded text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
-                title={sidebarCollapsed ? "Expandir barra lateral (Ctrl+B)" : "Recolher barra lateral (Ctrl+B)"}
+      <div className="flex h-screen w-screen overflow-hidden bg-[#f4f5f8] dark:bg-[#09090b] text-slate-800 dark:text-zinc-200 antialiased select-none font-sans flex-col">
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+          {/* Sidebar Técnica Industrial */}
+          <aside
+            className={`${sidebarCollapsed ? "w-[54px]" : "w-[224px]"
+              } shrink-0 bg-white dark:bg-[#0e0e11] border-r border-slate-200 dark:border-zinc-800 flex flex-col justify-between transition-[width] duration-150`}
+          >
+            <div className="flex flex-col min-h-0">
+              {/* Header da Barra Lateral */}
+              <div
+                className={`${sidebarCollapsed ? "px-2 py-2.5 justify-center" : "px-3 py-3 justify-between"
+                  } border-b border-slate-200 dark:border-zinc-800 flex items-center`}
               >
-                {sidebarCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
-              </button>
+                {!sidebarCollapsed && (
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-5 h-5 shrink-0 rounded border border-slate-400 dark:border-zinc-700 bg-slate-900 dark:bg-zinc-100 flex items-center justify-center text-white dark:text-slate-900">
+                      <Terminal className="w-3 h-3" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold tracking-tight text-slate-900 dark:text-zinc-100 leading-none truncate">
+                        PCP CENTRAL
+                      </div>
+                      <div className="text-[9px] font-mono text-slate-500 dark:text-zinc-500 tracking-wider truncate">
+                        SUBLIMAÇÃO // RIP
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={toggleSidebar}
+                  className="p-1 rounded text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors"
+                  title={sidebarCollapsed ? "Expandir barra lateral (Ctrl+B)" : "Recolher barra lateral (Ctrl+B)"}
+                >
+                  {sidebarCollapsed ? <PanelLeftOpen className="w-3.5 h-3.5" /> : <PanelLeftClose className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              {/* Navegação */}
+              <nav className={`flex-1 overflow-y-auto ${sidebarCollapsed ? "p-1.5" : "p-2"} space-y-0.5`}>
+                <button
+                  onClick={() => setAtual("inicio")}
+                  title="Centro de Comando (Ctrl+0)"
+                  className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0 py-2" : "justify-between px-2.5 py-1.5"
+                    } rounded text-xs font-medium cursor-pointer transition-colors ${atual === "inicio"
+                      ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 shadow-2xs font-semibold"
+                      : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/60"
+                    }`}
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <ModuleIcon
+                      id="inicio"
+                      className={`w-3.5 h-3.5 shrink-0 ${atual === "inicio"
+                          ? "text-white dark:text-slate-900"
+                          : "text-slate-400 dark:text-zinc-500"
+                        }`}
+                    />
+                    {!sidebarCollapsed && <span>Centro de Comando</span>}
+                  </span>
+                  {!sidebarCollapsed && (
+                    <kbd className={`text-[9px] font-mono px-1 rounded ${atual === "inicio" ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
+                      }`}>^0</kbd>
+                  )}
+                </button>
+
+                {GRUPOS.map((grupo) => {
+                  const itens = MODULOS.filter((m) => m.grupo === grupo);
+                  return (
+                    <div key={grupo} className={sidebarCollapsed ? "pt-2 mt-1 border-t border-slate-100 dark:border-zinc-800/70" : "pt-3"}>
+                      {!sidebarCollapsed && (
+                        <div className="px-2.5 pb-1 text-[9px] font-mono font-semibold tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
+                          {grupo}
+                        </div>
+                      )}
+                      <div className="space-y-0.5">
+                        {itens.map((m) => {
+                          const st = statusMap[m.id];
+                          const idx = MODULOS.findIndex((x) => x.id === m.id) + 1;
+                          const active = atual === m.id;
+                          return (
+                            <button
+                              key={m.id}
+                              onClick={() => setAtual(m.id)}
+                              title={`${m.nome} (${m.codigo}) — Ctrl+${idx}${st ? ` • ${st.text}` : ""}`}
+                              className={`relative w-full flex items-center ${sidebarCollapsed ? "justify-center px-0 py-2" : "justify-between px-2.5 py-1.5"
+                                } rounded text-xs cursor-pointer transition-colors ${active
+                                  ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 font-semibold shadow-2xs"
+                                  : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/60 font-medium"
+                                }`}
+                            >
+                              <span className="flex items-center gap-2 truncate">
+                                <ModuleIcon
+                                  id={m.id}
+                                  className={`w-3.5 h-3.5 shrink-0 ${active
+                                      ? "text-white dark:text-slate-900"
+                                      : "text-slate-400 dark:text-zinc-500"
+                                    }`}
+                                />
+                                {!sidebarCollapsed && <span className="truncate">{m.nome}</span>}
+                              </span>
+                              {sidebarCollapsed ? (
+                                st && (
+                                  <span
+                                    className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${st.cor === "amber" ? "bg-amber-500" : "bg-emerald-500"
+                                      } animate-pulse`}
+                                  />
+                                )
+                              ) : (
+                                <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                  {st && (
+                                    <span
+                                      className={`w-1.5 h-1.5 rounded-full ${st.cor === "amber" ? "bg-amber-500" : "bg-emerald-500"
+                                        } animate-pulse`}
+                                      title={st.text}
+                                    />
+                                  )}
+                                  {idx <= 9 && (
+                                    <kbd className={`text-[9px] font-mono px-0.5 rounded ${active ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
+                                      }`}>
+                                      ^{idx}
+                                    </kbd>
+                                  )}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </nav>
             </div>
 
-            {/* Navegação */}
-            <nav className={`flex-1 overflow-y-auto ${sidebarCollapsed ? "p-1.5" : "p-2"} space-y-0.5`}>
+            {/* Rodapé da Sidebar */}
+            <div
+              className={`p-2 border-t border-slate-200 dark:border-zinc-800 flex ${sidebarCollapsed ? "flex-col items-center gap-1" : "items-center justify-between gap-1"
+                } text-xs`}
+            >
               <button
-                onClick={() => setAtual("inicio")}
-                title="Centro de Comando (Ctrl+0)"
-                className={`w-full flex items-center ${
-                  sidebarCollapsed ? "justify-center px-0 py-2" : "justify-between px-2.5 py-1.5"
-                } rounded text-xs font-medium cursor-pointer transition-colors ${
-                  atual === "inicio"
-                    ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 shadow-2xs font-semibold"
-                    : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/60"
-                }`}
+                onClick={toggleTheme}
+                className={`flex items-center ${sidebarCollapsed ? "justify-center p-1.5 w-full" : "gap-1.5 px-2 py-1"
+                  } rounded text-[11px] font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors`}
+                title="Alternar Modo Claro / Escuro (Alt+T)"
               >
-                <span className="flex items-center gap-2 truncate">
-                  <ModuleIcon
-                    id="inicio"
-                    className={`w-3.5 h-3.5 shrink-0 ${
-                      atual === "inicio"
-                        ? "text-white dark:text-slate-900"
-                        : "text-slate-400 dark:text-zinc-500"
-                    }`}
-                  />
-                  {!sidebarCollapsed && <span>Centro de Comando</span>}
-                </span>
+                {dark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-slate-500" />}
                 {!sidebarCollapsed && (
-                  <kbd className={`text-[9px] font-mono px-1 rounded ${
-                    atual === "inicio" ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
-                  }`}>^0</kbd>
+                  <>
+                    <span>{dark ? "Claro" : "Escuro"}</span>
+                    <kbd className="text-[9px] font-mono text-slate-400 dark:text-zinc-500">Alt+T</kbd>
+                  </>
                 )}
               </button>
 
-              {GRUPOS.map((grupo) => {
-                const itens = MODULOS.filter((m) => m.grupo === grupo);
-                return (
-                  <div key={grupo} className={sidebarCollapsed ? "pt-2 mt-1 border-t border-slate-100 dark:border-zinc-800/70" : "pt-3"}>
-                    {!sidebarCollapsed && (
-                      <div className="px-2.5 pb-1 text-[9px] font-mono font-semibold tracking-wider text-slate-400 dark:text-zinc-500 uppercase">
-                        {grupo}
-                      </div>
-                    )}
-                    <div className="space-y-0.5">
-                      {itens.map((m) => {
-                        const st = statusMap[m.id];
-                        const idx = MODULOS.findIndex((x) => x.id === m.id) + 1;
-                        const active = atual === m.id;
-                        return (
-                          <button
-                            key={m.id}
-                            onClick={() => setAtual(m.id)}
-                            title={`${m.nome} (${m.codigo}) — Ctrl+${idx}${st ? ` • ${st.text}` : ""}`}
-                            className={`relative w-full flex items-center ${
-                              sidebarCollapsed ? "justify-center px-0 py-2" : "justify-between px-2.5 py-1.5"
-                            } rounded text-xs cursor-pointer transition-colors ${
-                              active
-                                ? "bg-slate-900 dark:bg-zinc-100 text-white dark:text-slate-900 font-semibold shadow-2xs"
-                                : "text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800/60 font-medium"
-                            }`}
-                          >
-                            <span className="flex items-center gap-2 truncate">
-                              <ModuleIcon
-                                id={m.id}
-                                className={`w-3.5 h-3.5 shrink-0 ${
-                                  active
-                                    ? "text-white dark:text-slate-900"
-                                    : "text-slate-400 dark:text-zinc-500"
-                                }`}
-                              />
-                              {!sidebarCollapsed && <span className="truncate">{m.nome}</span>}
-                            </span>
-                            {sidebarCollapsed ? (
-                              st && (
-                                <span
-                                  className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
-                                    st.cor === "amber" ? "bg-amber-500" : "bg-emerald-500"
-                                  } animate-pulse`}
-                                />
-                              )
-                            ) : (
-                              <div className="flex items-center gap-1.5 shrink-0 ml-1">
-                                {st && (
-                                  <span
-                                    className={`w-1.5 h-1.5 rounded-full ${
-                                      st.cor === "amber" ? "bg-amber-500" : "bg-emerald-500"
-                                    } animate-pulse`}
-                                    title={st.text}
-                                  />
-                                )}
-                                {idx <= 9 && (
-                                  <kbd className={`text-[9px] font-mono px-0.5 rounded ${
-                                    active ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
-                                  }`}>
-                                    ^{idx}
-                                  </kbd>
-                                )}
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </nav>
+              <button
+                onClick={() => setAtual("about")}
+                className={`flex items-center ${sidebarCollapsed ? "justify-center p-1.5 w-full" : "gap-1 px-2 py-1"
+                  } rounded text-[11px] font-medium cursor-pointer transition-colors ${atual === "about"
+                    ? "bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-white"
+                    : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                  }`}
+                title="Especificações do Sistema (Alt+I)"
+              >
+                <Info className="w-3.5 h-3.5" />
+                {!sidebarCollapsed && <span>Specs</span>}
+              </button>
+            </div>
+          </aside>
+
+          {/* Área de Trabalho Central */}
+          <main className="flex-1 overflow-y-auto bg-[#f8f9fa] dark:bg-[#09090b]">
+            {atual === "inicio" && <HomePage onAbrir={setAtual} statusMap={statusMap} driveBase={driveBase} />}
+            {atual === "pastas" && <PastasDiaPage />}
+            {atual === "explorer" && <ExplorerPage onNavigate={setAtual} />}
+            {atual === "tiff" && <TiffProcessorPage />}
+            {atual === "bolsinhas" && <BolsinhasPage />}
+            {atual === "cortador" && <CortadorPage />}
+            {atual === "consumo" && <ConsumoPage />}
+            {atual === "shopee" && <ShopeePage />}
+            {atual === "calandragem" && <CalandragemPage />}
+            {atual === "notepad" && <NotepadPage />}
+            {atual === "whatsapp" && <WhatsappPage />}
+            {atual === "about" && <AboutPage />}
+          </main>
+        </div>
+
+        {/* Barra de Telemetria Inferior (Industrial Status Bar) */}
+        <footer className="h-6.5 shrink-0 bg-white dark:bg-[#0c0c0e] border-t border-slate-200 dark:border-zinc-800/80 px-3 flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-zinc-400 z-10">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5">
+              <HardDrive className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
+              <span className="text-slate-700 dark:text-zinc-300 font-semibold">{driveBase}</span>
+            </span>
+            <span className="text-slate-300 dark:text-zinc-700">|</span>
+            <span className="flex items-center gap-1">
+              <span className="text-slate-400 dark:text-zinc-500">SERVIÇOS ATIVOS:</span>
+              <span className={`font-semibold ${totalAtivos > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
+                {totalAtivos}
+              </span>
+            </span>
+            {statusMap.notepad && (
+              <>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <span className="text-emerald-600 dark:text-emerald-400">NOTEPAD :8766</span>
+              </>
+            )}
+            {statusMap.calandragem && (
+              <>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <span className="text-emerald-600 dark:text-emerald-400">CALANDRAGEM :8767</span>
+              </>
+            )}
+            {statusMap.whatsapp && (
+              <>
+                <span className="text-slate-300 dark:text-zinc-700">•</span>
+                <span className="text-emerald-600 dark:text-emerald-400">ZAP :5050</span>
+              </>
+            )}
           </div>
 
-          {/* Rodapé da Sidebar */}
-          <div
-            className={`p-2 border-t border-slate-200 dark:border-zinc-800 flex ${
-              sidebarCollapsed ? "flex-col items-center gap-1" : "items-center justify-between gap-1"
-            } text-xs`}
-          >
+          <div className="flex items-center gap-3">
             <button
-              onClick={toggleTheme}
-              className={`flex items-center ${
-                sidebarCollapsed ? "justify-center p-1.5 w-full" : "gap-1.5 px-2 py-1"
-              } rounded text-[11px] font-medium text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors`}
-              title="Alternar Modo Claro / Escuro (Alt+T)"
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className="hover:text-slate-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
+              title="Abrir Paleta de Comandos (Ctrl+K)"
             >
-              {dark ? <Sun className="w-3.5 h-3.5 text-amber-500" /> : <Moon className="w-3.5 h-3.5 text-slate-500" />}
-              {!sidebarCollapsed && (
+              [Ctrl+K] COMANDOS
+            </button>
+            <span className="text-slate-300 dark:text-zinc-700">|</span>
+            <span>[Alt+←/→] ABAS</span>
+            <span className="text-slate-300 dark:text-zinc-700">|</span>
+            <span>[Ctrl+B] SIDEBAR</span>
+            <span className="text-slate-300 dark:text-zinc-700">|</span>
+            <span>[Alt+T] TEMA</span>
+            <span className="text-slate-300 dark:text-zinc-700">|</span>
+            <button
+              type="button"
+              onClick={openUpdaterModal}
+              className={`flex items-center gap-1 cursor-pointer transition-colors ${update
+                  ? "text-amber-600 dark:text-amber-400 font-bold"
+                  : "hover:text-slate-900 dark:hover:text-zinc-100"
+                }`}
+              title="Atualizações do Sistema (Alt+U)"
+            >
+              {update ? (
                 <>
-                  <span>{dark ? "Claro" : "Escuro"}</span>
-                  <kbd className="text-[9px] font-mono text-slate-400 dark:text-zinc-500">Alt+T</kbd>
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  <span>[UPD: v{update.version}]</span>
                 </>
+              ) : (
+                <span>[Alt+U] UPD</span>
               )}
             </button>
-
+            <span className="text-slate-300 dark:text-zinc-700">|</span>
             <button
-              onClick={() => setAtual("about")}
-              className={`flex items-center ${
-                sidebarCollapsed ? "justify-center p-1.5 w-full" : "gap-1 px-2 py-1"
-              } rounded text-[11px] font-medium cursor-pointer transition-colors ${
-                atual === "about"
-                  ? "bg-slate-200 dark:bg-zinc-800 text-slate-900 dark:text-white"
-                  : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
-              }`}
-              title="Especificações do Sistema (Alt+I)"
+              type="button"
+              onClick={() => setHelpOpen(true)}
+              className="flex items-center gap-1 hover:text-slate-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
+              title="Abrir Guia Completo de Atalhos (F1 ou ?)"
             >
-              <Info className="w-3.5 h-3.5" />
-              {!sidebarCollapsed && <span>Specs</span>}
+              <Keyboard className="w-3 h-3" />
+              <span>[F1] ATALHOS</span>
             </button>
           </div>
-        </aside>
+        </footer>
 
-        {/* Área de Trabalho Central */}
-        <main className="flex-1 overflow-y-auto bg-[#f8f9fa] dark:bg-[#09090b]">
-          {atual === "inicio" && <HomePage onAbrir={setAtual} statusMap={statusMap} driveBase={driveBase} />}
-          {atual === "pastas" && <PastasDiaPage />}
-          {atual === "explorer" && <ExplorerPage />}
-          {atual === "tiff" && <TiffProcessorPage />}
-          {atual === "bolsinhas" && <BolsinhasPage />}
-          {atual === "cortador" && <CortadorPage />}
-          {atual === "consumo" && <ConsumoPage />}
-          {atual === "shopee" && <ShopeePage />}
-          {atual === "calandragem" && <CalandragemPage />}
-          {atual === "notepad" && <NotepadPage />}
-          {atual === "whatsapp" && <WhatsappPage />}
-          {atual === "about" && <AboutPage />}
-        </main>
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          atual={atual}
+          dark={dark}
+          sidebarCollapsed={sidebarCollapsed}
+          onNavigate={setAtual}
+          onToggleTheme={toggleTheme}
+          onToggleSidebar={toggleSidebar}
+          onNextTab={nextTab}
+          onPrevTab={prevTab}
+          onOpenHelp={() => setHelpOpen(true)}
+          onOpenUpdater={openUpdaterModal}
+        />
+        <ShortcutsModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+        <UpdateModal busyJobs={busyJobs} />
       </div>
-
-      {/* Barra de Telemetria Inferior (Industrial Status Bar) */}
-      <footer className="h-6.5 shrink-0 bg-white dark:bg-[#0c0c0e] border-t border-slate-200 dark:border-zinc-800/80 px-3 flex items-center justify-between text-[10px] font-mono text-slate-500 dark:text-zinc-400 z-10">
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <HardDrive className="w-3 h-3 text-slate-400 dark:text-zinc-500" />
-            <span className="text-slate-700 dark:text-zinc-300 font-semibold">{driveBase}</span>
-          </span>
-          <span className="text-slate-300 dark:text-zinc-700">|</span>
-          <span className="flex items-center gap-1">
-            <span className="text-slate-400 dark:text-zinc-500">SERVIÇOS ATIVOS:</span>
-            <span className={`font-semibold ${totalAtivos > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500"}`}>
-              {totalAtivos}
-            </span>
-          </span>
-          {statusMap.notepad && (
-            <>
-              <span className="text-slate-300 dark:text-zinc-700">•</span>
-              <span className="text-emerald-600 dark:text-emerald-400">NOTEPAD :8766</span>
-            </>
-          )}
-          {statusMap.calandragem && (
-            <>
-              <span className="text-slate-300 dark:text-zinc-700">•</span>
-              <span className="text-emerald-600 dark:text-emerald-400">CALANDRAGEM :8767</span>
-            </>
-          )}
-          {statusMap.whatsapp && (
-            <>
-              <span className="text-slate-300 dark:text-zinc-700">•</span>
-              <span className="text-emerald-600 dark:text-emerald-400">ZAP :5050</span>
-            </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setPaletteOpen(true)}
-            className="hover:text-slate-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
-            title="Abrir Paleta de Comandos (Ctrl+K)"
-          >
-            [Ctrl+K] COMANDOS
-          </button>
-          <span className="text-slate-300 dark:text-zinc-700">|</span>
-          <span>[Alt+←/→] ABAS</span>
-          <span className="text-slate-300 dark:text-zinc-700">|</span>
-          <span>[Ctrl+B] SIDEBAR</span>
-          <span className="text-slate-300 dark:text-zinc-700">|</span>
-          <span>[Alt+T] TEMA</span>
-          <span className="text-slate-300 dark:text-zinc-700">|</span>
-          <button
-            type="button"
-            onClick={openUpdaterModal}
-            className={`flex items-center gap-1 cursor-pointer transition-colors ${
-              update
-                ? "text-amber-600 dark:text-amber-400 font-bold"
-                : "hover:text-slate-900 dark:hover:text-zinc-100"
-            }`}
-            title="Atualizações do Sistema (Alt+U)"
-          >
-            {update ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                <span>[UPD: v{update.version}]</span>
-              </>
-            ) : (
-              <span>[Alt+U] UPD</span>
-            )}
-          </button>
-          <span className="text-slate-300 dark:text-zinc-700">|</span>
-          <button
-            type="button"
-            onClick={() => setHelpOpen(true)}
-            className="flex items-center gap-1 hover:text-slate-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
-            title="Abrir Guia Completo de Atalhos (F1 ou ?)"
-          >
-            <Keyboard className="w-3 h-3" />
-            <span>[F1] ATALHOS</span>
-          </button>
-        </div>
-      </footer>
-
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        atual={atual}
-        dark={dark}
-        sidebarCollapsed={sidebarCollapsed}
-        onNavigate={setAtual}
-        onToggleTheme={toggleTheme}
-        onToggleSidebar={toggleSidebar}
-        onNextTab={nextTab}
-        onPrevTab={prevTab}
-        onOpenHelp={() => setHelpOpen(true)}
-        onOpenUpdater={openUpdaterModal}
-      />
-      <ShortcutsModal open={helpOpen} onClose={() => setHelpOpen(false)} />
-      <UpdateModal busyJobs={busyJobs} />
-    </div>
     </ShortcutProvider>
   );
 }
