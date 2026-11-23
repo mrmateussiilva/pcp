@@ -27,6 +27,8 @@ jobs:
     name: Build Windows (x64)
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout

@@ -119,7 +119,11 @@ export function UpdateModal({ busyJobs }: { busyJobs: string[] }) {
           )}
           {phase === "error" && (
             <Linha icon={<AlertTriangle className="w-3.5 h-3.5" />} tone="red">
-              <span className="break-all">Falha: {error}</span>
+              <span className="break-words">
+                {error?.includes("Could not fetch a valid release JSON")
+                  ? "Nenhuma atualização publicada ainda (manifesto latest.json não encontrado na release mais recente)."
+                  : `Falha: ${error}`}
+              </span>
             </Linha>
           )}
 
