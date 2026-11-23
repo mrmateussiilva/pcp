@@ -24,6 +24,7 @@ export function CommandPalette({
   onNextTab,
   onPrevTab,
   onOpenHelp,
+  onOpenUpdater,
 }: {
   open: boolean;
   onClose: () => void;
@@ -36,6 +37,7 @@ export function CommandPalette({
   onNextTab: () => void;
   onPrevTab: () => void;
   onOpenHelp: () => void;
+  onOpenUpdater?: () => void;
 }) {
   const { pageShortcuts } = useShortcutContext();
   const [query, setQuery] = useState("");
@@ -133,11 +135,23 @@ export function CommandPalette({
         detail: "Mostra todos os atalhos globais e da tela atual",
         shortcut: "F1",
         run: onOpenHelp,
-      }
+      },
+      ...(onOpenUpdater
+        ? [
+            {
+              id: "sys:updater",
+              section: "SISTEMA" as const,
+              label: "Verificar Atualizações do Sistema (UPD-00)",
+              detail: "Verifica e instala novas versões do PCP Central",
+              shortcut: "Alt+U",
+              run: onOpenUpdater,
+            },
+          ]
+        : [])
     );
 
     return list;
-  }, [pageShortcuts, dark, sidebarCollapsed, onNavigate, onToggleTheme, onToggleSidebar, onNextTab, onPrevTab, onOpenHelp]);
+  }, [pageShortcuts, dark, sidebarCollapsed, onNavigate, onToggleTheme, onToggleSidebar, onNextTab, onPrevTab, onOpenHelp, onOpenUpdater]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();

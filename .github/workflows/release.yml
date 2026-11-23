@@ -74,6 +74,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "PCP Central ${{ github.ref_name }}"
@@ -83,6 +85,8 @@ jobs:
             - **`PCP.Central_*_x64-setup.exe`** — instalador recomendado (NSIS, não exige administrador).
             - **`PCP.Central_*_x64_pt-BR.msi`** — para implantação via GPO/admin.
 
+            O app conta com atualização automática: clientes já instalados identificam esta versão automaticamente via `latest.json`.
+
             Ao instalar uma versão nova por cima, as configurações (`config.json`) e notas são preservadas.
           releaseDraft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
@@ -90,6 +94,9 @@ jobs:
 
       - name: Build (manual, sem release)
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri build -- --target x86_64-pc-windows-msvc
 
       - name: Anexar instaladores ao job

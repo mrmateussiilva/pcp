@@ -15,6 +15,7 @@ const GLOBAL_NAV = [
 const GLOBAL_SYS = [
   { keys: "Ctrl+B", desc: "Recolher ou expandir a barra lateral (Sidebar)" },
   { keys: "Alt+T / Ctrl+Shift+L", desc: "Alternar Tema Claro / Escuro instantaneamente" },
+  { keys: "Alt+U", desc: "Verificar ou instalar atualizações do sistema (UPD-00)" },
   { keys: "F1 / Ctrl+/ / ?", desc: "Abrir ou fechar este Guia de Atalhos" },
   { keys: "Esc", desc: "Fechar modal aberto ou sair do campo de texto ativo" },
   { keys: "Tab / Shift+Tab", desc: "Navegar entre campos, checkboxes e botões da tela" },

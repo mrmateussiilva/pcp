@@ -161,5 +161,26 @@ Em ~10–15 min a release aparece em **GitHub → Releases** com:
 - Na primeira execução o Windows Defender Firewall pergunta sobre acesso à rede: **permita em "Redes privadas"** — necessário para Notepad (`8765/8766`), Calandragem e Webhook do WhatsApp (`5050`) serem acessados por outros dispositivos.
 - O app é **instância única**: abrir de novo apenas traz a janela existente para frente (evita conflito de portas e watchers duplicados).
 
+---
+
+## Atualizações Automáticas (In-App Updater)
+
+O PCP Central possui um sistema integrado de verificação e atualização (`UPD-00`):
+
+1. **Detecção Silenciosa e Periódica:**
+   - 8 segundos após a abertura, o app consulta o endpoint `releases/latest/download/latest.json`.
+   - Permanece checando automaticamente a cada **30 minutos** em background (sem interromper o operador).
+   - Ao encontrar uma nova versão, exibe notificação nativa do Windows e ativa o indicador visual `[UPD: vX.Y.Z]` na barra de status inferior.
+2. **Operação e Teclado:**
+   - Pressione **`Alt+U`** ou clique no botão `[UPD]` na barra inferior para abrir o painel de atualização.
+   - Pressione **`Ctrl+Enter`** no modal para baixar, verificar a assinatura criptográfica, instalar passivamente e reiniciar.
+   - Pressione **`Ctrl+R`** para forçar uma verificação manual imediata.
+   - Disponível também na **Paleta de Comandos (`Ctrl+K`)** e na tela de **Specs (`Alt+I`)**.
+3. **Proteção de Produção (Busy Guard):**
+   - Se houver processos em andamento (corte de painéis, varredura de bolsinhas ou renderização de fichas Shopee), o modal alerta o operador para que aguarde a conclusão antes de reiniciar a estação.
+4. **Assinatura Criptográfica dos Pacotes:**
+   - As atualizações são assinadas com chave Minisign. A chave pública está fixada em `tauri.conf.json`.
+   - No GitHub Actions, os artefatos de release geram o `latest.json` assinado para que o download seja seguro e verificado.
+
 > [!NOTE]
 > O instalador não é assinado digitalmente (code signing). O SmartScreen pode exibir "O Windows protegeu o computador" → **Mais informações → Executar assim mesmo**.

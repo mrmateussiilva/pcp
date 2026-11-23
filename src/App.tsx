@@ -26,6 +26,8 @@ import { MODULOS, ModuloId } from "./modules/registry";
 import { ShortcutProvider, isEditableTarget } from "./hooks/useShortcuts";
 import { CommandPalette } from "./components/CommandPalette";
 import { ShortcutsModal } from "./components/ShortcutsModal";
+import { UpdateModal } from "./components/UpdateModal";
+import { UpdaterProvider, useUpdater } from "./hooks/useUpdater";
 import { HomePage } from "./pages/HomePage";
 import { PastasDiaPage } from "./pages/PastasDiaPage";
 import { TiffProcessorPage } from "./pages/TiffProcessorPage";
@@ -68,7 +70,8 @@ export function ModuleIcon({ id, className = "w-4 h-4" }: { id: ModuloId; classN
 
 export type StatusInfo = { text: string; cor: "green" | "amber" };
 
-export default function App() {
+function AppContent() {
+  const { update, openModal: openUpdaterModal, modalOpen: updaterOpen } = useUpdater();
   const [atual, setAtual] = useState<ModuloId | "about">("inicio");
   const [dark, setDark] = useState<boolean>(() => {
     return localStorage.getItem("pcp-theme") === "dark";
@@ -304,6 +307,13 @@ export default function App() {
         return;
       }
 
+      // Atualizador: Alt+U
+      if (e.altKey && !e.ctrlKey && !e.shiftKey && key === "u") {
+        e.preventDefault();
+        openUpdaterModal();
+        return;
+      }
+
       // Recolher/Expandir Sidebar: Ctrl+B
       if (e.ctrlKey && !e.altKey && !e.shiftKey && key === "b") {
         e.preventDefault();
@@ -363,9 +373,13 @@ export default function App() {
   }, [paletteOpen, helpOpen, toggleTheme, toggleSidebar, nextTab, prevTab]);
 
   const totalAtivos = Object.values(statusMap).filter(Boolean).length;
+  const busyJobs: string[] = [];
+  if (statusMap.bolsinhas?.cor === "amber") busyJobs.push("Bolsinhas");
+  if (statusMap.cortador?.cor === "amber") busyJobs.push("Cortador");
+  if (statusMap.shopee?.cor === "amber") busyJobs.push("Shopee");
 
   return (
-    <ShortcutProvider disabled={paletteOpen || helpOpen}>
+    <ShortcutProvider disabled={paletteOpen || helpOpen || updaterOpen}>
     <div className="flex h-screen w-screen overflow-hidden bg-[#f4f5f8] dark:bg-[#09090b] text-slate-800 dark:text-zinc-200 antialiased select-none font-sans flex-col">
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Sidebar Técnica Industrial */}
@@ -617,6 +631,26 @@ export default function App() {
           <span className="text-slate-300 dark:text-zinc-700">|</span>
           <button
             type="button"
+            onClick={openUpdaterModal}
+            className={`flex items-center gap-1 cursor-pointer transition-colors ${
+              update
+                ? "text-amber-600 dark:text-amber-400 font-bold"
+                : "hover:text-slate-900 dark:hover:text-zinc-100"
+            }`}
+            title="Atualizações do Sistema (Alt+U)"
+          >
+            {update ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>[UPD: v{update.version}]</span>
+              </>
+            ) : (
+              <span>[Alt+U] UPD</span>
+            )}
+          </button>
+          <span className="text-slate-300 dark:text-zinc-700">|</span>
+          <button
+            type="button"
             onClick={() => setHelpOpen(true)}
             className="flex items-center gap-1 hover:text-slate-900 dark:hover:text-zinc-100 cursor-pointer transition-colors"
             title="Abrir Guia Completo de Atalhos (F1 ou ?)"
@@ -639,9 +673,19 @@ export default function App() {
         onNextTab={nextTab}
         onPrevTab={prevTab}
         onOpenHelp={() => setHelpOpen(true)}
+        onOpenUpdater={openUpdaterModal}
       />
       <ShortcutsModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      <UpdateModal busyJobs={busyJobs} />
     </div>
     </ShortcutProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <UpdaterProvider>
+      <AppContent />
+    </UpdaterProvider>
   );
 }

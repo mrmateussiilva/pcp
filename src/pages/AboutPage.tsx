@@ -1,6 +1,7 @@
-import { ExternalLink, Info, Terminal } from "lucide-react";
+import { ArrowUpCircle, ExternalLink, Info, Terminal } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { PageHeader, SurfaceCard } from "../components/ui";
+import { useUpdater } from "../hooks/useUpdater";
 
 const SPECS = [
   { item: "RUNTIME ENGINE", valor: "Rust (Tauri v2 Shell / Staticlib)" },
@@ -14,6 +15,8 @@ const SPECS = [
 ];
 
 export function AboutPage() {
+  const { currentVersion, update, openModal } = useUpdater();
+
   const abrirRepo = async () => {
     try {
       await openUrl("https://github.com/mrmateussiilva/pcp");
@@ -44,7 +47,7 @@ export function AboutPage() {
                   PCP Central Workstation
                 </h2>
                 <span className="font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-900/60 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400">
-                  BUILD 2026.11
+                  v{currentVersion}
                 </span>
               </div>
               <p className="font-mono text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
@@ -53,13 +56,27 @@ export function AboutPage() {
             </div>
           </div>
 
-          <button
-            onClick={abrirRepo}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-700 text-xs font-mono font-semibold cursor-pointer transition-colors"
-          >
-            <span>GITHUB REPO</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={openModal}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-mono font-semibold cursor-pointer transition-colors ${
+                update
+                  ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100"
+                  : "border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-700"
+              }`}
+              title="Abrir gerenciador de atualizações (Alt+U)"
+            >
+              <ArrowUpCircle className={`w-3.5 h-3.5 ${update ? "text-amber-500 animate-pulse" : "text-slate-500"}`} />
+              <span>{update ? `NOVA VERSÃO v${update.version}` : "ATUALIZAÇÃO (UPD-00)"}</span>
+            </button>
+            <button
+              onClick={abrirRepo}
+              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-700 text-xs font-mono font-semibold cursor-pointer transition-colors"
+            >
+              <span>GITHUB REPO</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
 
         {/* Ficha Técnica */}
