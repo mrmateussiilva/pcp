@@ -1,5 +1,5 @@
 use crate::core::config::ConfigManager;
-use crate::core::notepad_srv::{NotepadService, NotepadStatusPayload};
+use crate::core::notepad_srv::{NotepadHistoricoItem, NotepadService, NotepadStatusPayload};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::path::PathBuf;
@@ -120,4 +120,22 @@ pub fn notepad_parar(
 #[tauri::command]
 pub fn notepad_set_texto(srv: State<'_, NotepadService>, text: String) {
     srv.set_texto(text, "PCP Central".to_string());
+}
+
+#[tauri::command]
+pub fn notepad_obter_historico(srv: State<'_, NotepadService>) -> Vec<NotepadHistoricoItem> {
+    srv.obter_historico()
+}
+
+#[tauri::command]
+pub fn notepad_restaurar_versao(
+    srv: State<'_, NotepadService>,
+    versao_id: u64,
+) -> Result<(), String> {
+    srv.restaurar_versao(versao_id)
+}
+
+#[tauri::command]
+pub fn notepad_limpar_historico(srv: State<'_, NotepadService>) {
+    srv.limpar_historico();
 }

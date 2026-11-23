@@ -2,182 +2,403 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Notepad compartilhado</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PCP Central // Bloco de Notas Colaborativo</title>
   <style>
-    * { box-sizing: border-box; }
+    :root {
+      --bg: #09090b;
+      --surface: #111115;
+      --border: #27272a;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --green: #10b981;
+      --red: #ef4444;
+      --card-bg: #18181b;
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f8fafc;
+        --surface: #ffffff;
+        --border: #e2e8f0;
+        --text: #0f172a;
+        --muted: #64748b;
+        --accent: #2563eb;
+        --accent-hover: #1d4ed8;
+        --green: #059669;
+        --red: #dc2626;
+        --card-bg: #f1f5f9;
+      }
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      background: #f4f4f4;
-      font-family: Arial, Helvetica, sans-serif;
-      color: #222;
+      height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
     }
+
     .wrap {
-      height: 100%;
       display: flex;
       flex-direction: column;
-      padding: 12px;
-      gap: 10px;
+      height: 100%;
+      height: 100dvh;
+      padding: 10px;
+      gap: 8px;
+      max-width: 1200px;
+      margin: 0 auto;
     }
+
+    /* Topbar */
     .topbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
-    }
-    .title {
-      font-size: 22px;
-      font-weight: 700;
-    }
-    .status {
-      font-size: 14px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid #bbb;
-      background: #fff;
-    }
-    .status.connected {
-      color: #0a7a35;
-      border-color: #8fd3a7;
-      background: #edf9f1;
-    }
-    .status.disconnected {
-      color: #a33;
-      border-color: #e3aaaa;
-      background: #fff0f0;
-    }
-    .meta {
-      font-size: 13px;
-      color: #555;
-      display: flex;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    .errorBanner {
-      display: none;
-      font-size: 13px;
-      color: #a33;
-      background: #fff0f0;
-      border: 1px solid #e3aaaa;
-      border-radius: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
       padding: 8px 12px;
     }
-    .errorBanner.show { display: block; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .title {
+      font-size: 13px;
+      font-weight: 700;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tag {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .status-pill {
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .status-pill.connected {
+      color: var(--green);
+      border-color: rgba(16, 185, 129, 0.3);
+    }
+    .status-pill.connected .status-dot {
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+    }
+
+    .status-pill.disconnected {
+      color: var(--red);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .status-pill.disconnected .status-dot {
+      background: var(--red);
+    }
+
+    /* Subbar com autor e nós conectados */
+    .meta-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--muted);
+      padding: 0 4px;
+      flex-wrap: wrap;
+    }
+
+    .author-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .author-input {
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      outline: none;
+      width: 140px;
+      font-weight: 600;
+    }
+    .author-input:focus {
+      border-color: var(--accent);
+    }
+
+    .clients-badge {
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    /* Banner de Erro */
+    .error-banner {
+      display: none;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #fff;
+      background: var(--red);
+      border-radius: 6px;
+      padding: 6px 12px;
+      animation: fadeIn 0.2s;
+    }
+    .error-banner.show { display: block; }
+
+    /* Editor */
+    .editor-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      min-height: 0;
+    }
+
     textarea {
       flex: 1;
       width: 100%;
+      height: 100%;
       resize: none;
-      border: 1px solid #bbb;
-      border-radius: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
       padding: 14px;
-      font-size: 18px;
-      line-height: 1.5;
-      font-family: Consolas, Monaco, monospace;
-      background: #fff;
-      color: #111;
+      font-size: 15px;
+      line-height: 1.6;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      background: var(--surface);
+      color: var(--text);
       outline: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
     }
+
     textarea:focus {
-      border-color: #666;
+      border-color: var(--accent);
     }
+
+    /* Footer Toolbar */
     .footer {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
-      font-size: 13px;
-      color: #555;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
     }
+
+    .counts {
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--muted);
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 6px;
+    }
+
     button {
-      border: 1px solid #999;
-      background: #fff;
-      color: #111;
-      border-radius: 8px;
-      padding: 10px 14px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      border-radius: 4px;
+      padding: 6px 10px;
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 600;
+      text-transform: uppercase;
+      transition: background 0.15s, border-color 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
+
     button:hover {
-      background: #f0f0f0;
+      background: var(--border);
+    }
+
+    button.danger {
+      color: var(--red);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+    button.danger:hover {
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
+    <!-- Topbar -->
     <div class="topbar">
-      <div class="title">Notepad compartilhado</div>
-      <div id="status" class="status disconnected">Desconectado</div>
+      <div class="brand">
+        <div class="title">
+          <span>PCP</span>
+          <span style="color: var(--accent);">//</span>
+          <span>NOTEPAD</span>
+        </div>
+        <span class="tag">LAN WS</span>
+      </div>
+      <div id="status" class="status-pill disconnected">
+        <span class="status-dot"></span>
+        <span id="statusText">Conectando...</span>
+      </div>
     </div>
 
-    <div class="meta">
-      <span id="meta">Última alteração: nenhuma</span>
-      <span id="clientsInfo"></span>
+    <!-- Subbar com identificador do operador -->
+    <div class="meta-bar">
+      <div class="author-wrapper">
+        <span>ESTAÇÃO:</span>
+        <input
+          type="text"
+          id="authorInput"
+          class="author-input"
+          placeholder="Ex: Calandra 01"
+          maxlength="30"
+        />
+      </div>
+      <div id="metaInfo">Última alteração: nenhuma</div>
+      <div id="clientsInfo" class="clients-badge">0 nó(s)</div>
     </div>
 
-    <div id="errorBanner" class="errorBanner"></div>
+    <!-- Banner de erro temporário -->
+    <div id="errorBanner" class="error-banner"></div>
 
-    <textarea id="editor" placeholder="Digite aqui..."></textarea>
+    <!-- Área de Edição Monospace -->
+    <div class="editor-container">
+      <textarea id="editor" placeholder="Digite aqui... Todos os terminais conectados na estamparia sincronizam em tempo real." spellcheck="false"></textarea>
+    </div>
 
+    <!-- Toolbar Inferior -->
     <div class="footer">
-      <div id="charCount">0 caracteres</div>
-      <button id="clearBtn" type="button">Limpar</button>
+      <div class="counts">
+        <span id="charCount">0 carac</span>
+        <span id="lineCount">1 lin</span>
+      </div>
+      <div class="btn-group">
+        <button id="timeBtn" type="button" title="Inserir data e hora atual no cursor">Timestamp</button>
+        <button id="copyBtn" type="button" title="Copiar todo o texto">Copiar</button>
+        <button id="clearBtn" type="button" class="danger" title="Limpar buffer com backup">Limpar</button>
+      </div>
     </div>
   </div>
 
   <script>
     const WS_PORT = __WS_PORT__;
     const statusEl = document.getElementById('status');
-    const metaEl = document.getElementById('meta');
+    const statusTextEl = document.getElementById('statusText');
+    const metaInfoEl = document.getElementById('metaInfo');
     const clientsInfoEl = document.getElementById('clientsInfo');
     const errorBanner = document.getElementById('errorBanner');
     const editor = document.getElementById('editor');
     const charCount = document.getElementById('charCount');
+    const lineCount = document.getElementById('lineCount');
+    const authorInput = document.getElementById('authorInput');
+    const timeBtn = document.getElementById('timeBtn');
+    const copyBtn = document.getElementById('copyBtn');
     const clearBtn = document.getElementById('clearBtn');
 
-    const clientId = 'pc-' + Math.random().toString(36).slice(2, 8);
+    // Recupera identificação salva no navegador local
+    let savedAuthor = localStorage.getItem('pcp_notepad_station') || '';
+    if (!savedAuthor) {
+      savedAuthor = 'Terminal ' + Math.random().toString(36).slice(2, 6).toUpperCase();
+      localStorage.setItem('pcp_notepad_station', savedAuthor);
+    }
+    authorInput.value = savedAuthor;
+    authorInput.addEventListener('change', () => {
+      const val = authorInput.value.trim() || 'Terminal Anônimo';
+      authorInput.value = val;
+      localStorage.setItem('pcp_notepad_station', val);
+    });
+
     const wsHost = window.location.hostname || 'localhost';
     const wsUrl = `ws://${wsHost}:${WS_PORT}`;
 
     let socket = null;
     let suppressSend = false;
     let debounceTimer = null;
+    let reconnectAttempts = 0;
 
-    function updateCount() {
-      charCount.textContent = `${editor.value.length} caracteres`;
+    function updateCounts() {
+      const text = editor.value;
+      charCount.textContent = `${text.length} carac`;
+      const lines = text.length === 0 ? 1 : text.split('\n').length;
+      lineCount.textContent = `${lines} lin`;
     }
 
     function setStatus(text, connected) {
-      statusEl.textContent = text;
-      statusEl.className = 'status ' + (connected ? 'connected' : 'disconnected');
+      statusTextEl.textContent = text;
+      statusEl.className = 'status-pill ' + (connected ? 'connected' : 'disconnected');
     }
 
     function formatTimestamp(iso) {
       if (!iso) return null;
       const d = new Date(iso);
       if (isNaN(d.getTime())) return iso;
-      return d.toLocaleString('pt-BR');
+      return d.toLocaleTimeString('pt-BR');
     }
 
     function setMeta(author, updatedAt) {
-      const who = author || 'nenhuma';
+      const who = author || 'desconhecido';
       const when = formatTimestamp(updatedAt);
-      metaEl.textContent = when
-        ? `Última alteração: ${who} às ${when}`
-        : `Última alteração: ${who}`;
+      metaInfoEl.textContent = when
+        ? `Última: ${who} às ${when}`
+        : `Última: ${who}`;
     }
 
     function setClientsInfo(count) {
-      if (typeof count !== 'number') {
-        clientsInfoEl.textContent = '';
-        return;
-      }
-      clientsInfoEl.textContent = `${count} cliente(s) conectado(s)`;
+      clientsInfoEl.textContent = typeof count === 'number' ? `${count} nó(s)` : '';
     }
 
     function showError(message) {
@@ -187,6 +408,7 @@
     }
 
     function applyIncomingText(text) {
+      if (editor.value === text) return;
       suppressSend = true;
       const cursorStart = editor.selectionStart;
       const cursorEnd = editor.selectionEnd;
@@ -198,30 +420,33 @@
         } catch (_) {}
       }
       suppressSend = false;
-      updateCount();
+      updateCounts();
     }
 
     function connect() {
       setStatus('Conectando...', false);
-      socket = new WebSocket(wsUrl);
+      try {
+        socket = new WebSocket(wsUrl);
+      } catch (err) {
+        scheduleReconnect();
+        return;
+      }
 
       socket.onopen = () => {
-        setStatus('WebSocket conectado', true);
+        reconnectAttempts = 0;
+        setStatus('Sincronizado', true);
         socket.send(JSON.stringify({ type: 'get_state' }));
       };
 
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-
           if (data.type === 'state') {
             applyIncomingText(data.text);
             setMeta(data.author, data.updated_at);
             setClientsInfo(data.clients);
-          }
-
-          if (data.type === 'error') {
-            showError(data.message || 'Erro desconhecido do servidor.');
+          } else if (data.type === 'error') {
+            showError(data.message || 'Erro do servidor PCP.');
           }
         } catch (e) {
           console.error('Mensagem inválida:', e);
@@ -229,42 +454,88 @@
       };
 
       socket.onclose = () => {
-        setStatus('Desconectado - reconectando...', false);
-        setTimeout(connect, 1500);
+        setStatus('Reconectando...', false);
+        scheduleReconnect();
       };
 
       socket.onerror = () => {
-        setStatus('Erro na conexão', false);
+        setStatus('Erro de Conexão', false);
       };
+    }
+
+    function scheduleReconnect() {
+      const delay = Math.min(1000 * Math.pow(1.5, reconnectAttempts), 5000);
+      reconnectAttempts++;
+      setTimeout(connect, delay);
     }
 
     function sendUpdate() {
       if (suppressSend) return;
       if (!socket || socket.readyState !== WebSocket.OPEN) return;
 
+      const currentAuthor = authorInput.value.trim() || 'Terminal Web';
       socket.send(JSON.stringify({
         type: 'update',
         text: editor.value,
-        author: clientId,
+        author: currentAuthor,
       }));
     }
 
     editor.addEventListener('input', () => {
-      updateCount();
+      updateCounts();
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(sendUpdate, 150);
     });
 
-    clearBtn.addEventListener('click', () => {
-      if (editor.value.length > 0 && !confirm('Limpar o texto para todo mundo?')) {
-        return;
+    // Trata tecla Tab para inserir 2 espaços
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = editor.selectionStart;
+        const end = editor.selectionEnd;
+        editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+        editor.selectionStart = editor.selectionEnd = start + 2;
+        updateCounts();
+        sendUpdate();
       }
-      editor.value = '';
-      updateCount();
+    });
+
+    // Inserir Timestamp
+    timeBtn.addEventListener('click', () => {
+      const now = new Date();
+      const timeStr = `[${now.toLocaleTimeString('pt-BR')}] `;
+      const start = editor.selectionStart;
+      const end = editor.selectionEnd;
+      editor.value = editor.value.substring(0, start) + timeStr + editor.value.substring(end);
+      editor.selectionStart = editor.selectionEnd = start + timeStr.length;
+      editor.focus();
+      updateCounts();
       sendUpdate();
     });
 
-    updateCount();
+    // Copiar
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(editor.value);
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Copiado!';
+        setTimeout(() => { copyBtn.textContent = originalText; }, 1500);
+      } catch (err) {
+        showError('Não foi possível copiar para a área de transferência.');
+      }
+    });
+
+    // Limpar
+    clearBtn.addEventListener('click', () => {
+      if (editor.value.length > 0 && !confirm('Limpar o buffer para todos os operadores conectados? (O PCP Central salva um backup da versão atual)')) {
+        return;
+      }
+      editor.value = '';
+      updateCounts();
+      sendUpdate();
+    });
+
+    updateCounts();
     connect();
   </script>
 </body>
