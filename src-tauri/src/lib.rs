@@ -217,6 +217,16 @@ pub fn run() {
             commands::calandragem::calandragem_status,
             commands::calandragem::calandragem_iniciar,
             commands::calandragem::calandragem_parar,
+            commands::explorer::explorer_get_config,
+            commands::explorer::explorer_save_config,
+            commands::explorer::explorer_listar_raizes,
+            commands::explorer::explorer_listar_dir,
+            commands::explorer::explorer_criar_pasta,
+            commands::explorer::explorer_renomear,
+            commands::explorer::explorer_excluir,
+            commands::explorer::explorer_copiar_ou_mover,
+            commands::explorer::explorer_revelar_no_sistema,
+            commands::explorer::explorer_inspecionar_imagem,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

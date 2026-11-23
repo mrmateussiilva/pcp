@@ -1,6 +1,7 @@
 export type ModuloId =
   | "inicio"
   | "pastas"
+  | "explorer"
   | "tiff"
   | "bolsinhas"
   | "cortador"
@@ -28,6 +29,15 @@ export const MODULOS: ModuloMeta[] = [
     nome: "Pastas do Dia",
     tipo: "BATCH",
     descricao: "Estruturação de diretórios de produção no drive Z: (Bolsinhas, Painéis, Conf, Totens).",
+    pronto: true,
+  },
+  {
+    id: "explorer",
+    codigo: "EXP-02",
+    grupo: "DIA A DIA",
+    nome: "Explorer",
+    tipo: "BATCH",
+    descricao: "Gerenciador de arquivos nativo estilo Windows Explorer com acesso rápido, operações em lote e inspeção RIP.",
     pronto: true,
   },
   {

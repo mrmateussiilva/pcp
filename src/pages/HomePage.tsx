@@ -12,7 +12,7 @@ interface HomePageProps {
 
 export function HomePage({ onAbrir, statusMap, driveBase }: HomePageProps) {
   usePageShortcuts([
-    ...MODULOS.map((m, idx) => ({
+    ...MODULOS.slice(0, 9).map((m, idx) => ({
       id: `home-open-${m.id}`,
       combo: String(idx + 1),
       keys: String(idx + 1),

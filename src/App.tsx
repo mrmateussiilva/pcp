@@ -5,6 +5,7 @@ import {
   BarChart3,
   FileText,
   Flame,
+  FolderOpen,
   FolderTree,
   HardDrive,
   Info,
@@ -30,6 +31,7 @@ import { UpdateModal } from "./components/UpdateModal";
 import { UpdaterProvider, useUpdater } from "./hooks/useUpdater";
 import { HomePage } from "./pages/HomePage";
 import { PastasDiaPage } from "./pages/PastasDiaPage";
+import { ExplorerPage } from "./pages/ExplorerPage";
 import { TiffProcessorPage } from "./pages/TiffProcessorPage";
 import { BolsinhasPage } from "./pages/BolsinhasPage";
 import { CortadorPage } from "./pages/CortadorPage";
@@ -49,6 +51,8 @@ export function ModuleIcon({ id, className = "w-4 h-4" }: { id: ModuloId; classN
       return <LayoutGrid className={className} />;
     case "pastas":
       return <FolderTree className={className} />;
+    case "explorer":
+      return <FolderOpen className={className} />;
     case "tiff":
       return <Printer className={className} />;
     case "bolsinhas":
@@ -507,11 +511,13 @@ function AppContent() {
                                     title={st.text}
                                   />
                                 )}
-                                <kbd className={`text-[9px] font-mono px-0.5 rounded ${
-                                  active ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
-                                }`}>
-                                  ^{idx}
-                                </kbd>
+                                {idx <= 9 && (
+                                  <kbd className={`text-[9px] font-mono px-0.5 rounded ${
+                                    active ? "bg-slate-800 dark:bg-zinc-200 text-slate-300 dark:text-zinc-700" : "text-slate-400 dark:text-zinc-600"
+                                  }`}>
+                                    ^{idx}
+                                  </kbd>
+                                )}
                               </div>
                             )}
                           </button>
@@ -567,6 +573,7 @@ function AppContent() {
         <main className="flex-1 overflow-y-auto bg-[#f8f9fa] dark:bg-[#09090b]">
           {atual === "inicio" && <HomePage onAbrir={setAtual} statusMap={statusMap} driveBase={driveBase} />}
           {atual === "pastas" && <PastasDiaPage />}
+          {atual === "explorer" && <ExplorerPage />}
           {atual === "tiff" && <TiffProcessorPage />}
           {atual === "bolsinhas" && <BolsinhasPage />}
           {atual === "cortador" && <CortadorPage />}
