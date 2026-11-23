@@ -4,6 +4,8 @@ pub mod config;
 pub mod consumo;
 pub mod cortador;
 pub mod explorer;
+pub mod explorer_search;
+pub mod explorer_watcher;
 pub mod global_log;
 pub mod imaging;
 pub mod notepad_srv;

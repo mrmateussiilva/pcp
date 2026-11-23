@@ -9,7 +9,10 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Bell,
+  BellRing,
   Calendar,
+  Camera,
   Check,
   ChevronRight,
   ClipboardPaste,
@@ -43,6 +46,7 @@ import {
   Square,
   Star,
   Trash2,
+  Upload,
   X,
 } from "lucide-react";
 import { PageHeader } from "../components/ui";
@@ -209,6 +213,38 @@ function RaizIcon({ icone, className = "w-3.5 h-3.5" }: { icone: string; classNa
   }
 }
 
+interface NovoArquivoEvento {
+  caminho: string;
+  nome: string;
+  pasta: string;
+  extensao: string;
+  tamanho_bytes: number;
+}
+
+interface SimilaridadeResultado {
+  caminho: string;
+  score: number;
+}
+
+function tocarBeepNovoArquivo() {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.28);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.29);
+  } catch {}
+}
+
 function nomeDaPasta(caminho: string): string {
   const limpo = caminho.replace(/[\\/]+$/, "");
   if (!limpo) return caminho;
@@ -297,6 +333,16 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
   const [cutProgresso, setCutProgresso] = useState(0);
   const [cutLogs, setCutLogs] = useState<string[]>([]);
   const [cutErro, setCutErro] = useState<string | null>(null);
+
+  // Monitoramento de Pasta e Notificações de novos arquivos salvos
+  const [pastaMonitorada, setPastaMonitorada] = useState<string | null>(null);
+  const [novoArquivoAlerta, setNovoArquivoAlerta] = useState<NovoArquivoEvento | null>(null);
+
+  // Busca Visual por Imagem (Similaridade / Reverse Search)
+  const [modalBuscaImagem, setModalBuscaImagem] = useState(false);
+  const [imgReferenciaPreview, setImgReferenciaPreview] = useState<string | null>(null);
+  const [buscandoImagem, setBuscandoImagem] = useState(false);
+  const [scoresSimilaridade, setScoresSimilaridade] = useState<Record<string, number> | null>(null);
 
   const mostrarToast = useCallback((tipo: "ok" | "erro", texto: string) => {
     setToast({ tipo, texto });
@@ -409,6 +455,127 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
     };
   }, []);
 
+  // Monitoramento: verifica no backend se já há uma pasta monitorada
+  useEffect(() => {
+    invoke<string | null>("explorer_pasta_monitorada")
+      .then((p) => {
+        if (p) setPastaMonitorada(p);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Monitoramento: escuta evento reativo quando novo arquivo é salvo na pasta vigiada
+  useEffect(() => {
+    const unlistenPromise = listen<NovoArquivoEvento>("explorer://novo-arquivo", (event) => {
+      const payload = event.payload;
+      tocarBeepNovoArquivo();
+      setNovoArquivoAlerta(payload);
+      mostrarToast("ok", `🔔 Novo arquivo detectado: ${payload.nome}`);
+
+      // Se a pasta aberta for a mesma do arquivo salvo, recarrega a listagem em background
+      if (listagem && listagem.caminho.toLowerCase() === payload.pasta.toLowerCase()) {
+        carregarDiretorio(listagem.caminho, { pushHistory: false });
+      }
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten()).catch(() => {});
+    };
+  }, [listagem, carregarDiretorio, mostrarToast]);
+
+  const alternarMonitoramento = useCallback(async () => {
+    if (!listagem) return;
+    if (pastaMonitorada) {
+      try {
+        await invoke("explorer_parar_monitoramento");
+        setPastaMonitorada(null);
+        mostrarToast("ok", "Monitoramento de pasta desativado.");
+      } catch (e) {
+        mostrarToast("erro", String(e));
+      }
+    } else {
+      try {
+        await invoke("explorer_iniciar_monitoramento", { pasta: listagem.caminho });
+        setPastaMonitorada(listagem.caminho);
+        mostrarToast("ok", `Monitorando novos arquivos em: ${nomeDaPasta(listagem.caminho)}`);
+      } catch (e) {
+        mostrarToast("erro", String(e));
+      }
+    }
+  }, [listagem, pastaMonitorada, mostrarToast]);
+
+  // Busca por imagem: executa busca de similaridade visual contra arquivos de imagem da pasta atual
+  const executarBuscaPorImagem = useCallback(async (ref: string) => {
+    if (!listagem) return;
+    const imagensDaPasta = listagem.itens
+      .filter((it) => !it.eh_pasta && IMAGE_EXTS.has(it.extensao))
+      .map((it) => it.caminho);
+
+    if (imagensDaPasta.length === 0) {
+      mostrarToast("erro", "Esta pasta não contém arquivos de imagem para comparar.");
+      return;
+    }
+
+    setBuscandoImagem(true);
+    try {
+      const resultados = await invoke<SimilaridadeResultado[]>("explorer_buscar_por_imagem", {
+        referencia: ref,
+        caminhos: imagensDaPasta,
+      });
+
+      const map: Record<string, number> = {};
+      for (const r of resultados) {
+        map[r.caminho] = r.score;
+      }
+      setScoresSimilaridade(map);
+      setModalBuscaImagem(false);
+      mostrarToast("ok", `Busca visual concluída: ${resultados.length} imagens comparadas.`);
+    } catch (e) {
+      mostrarToast("erro", `Erro na busca por imagem: ${e}`);
+    } finally {
+      setBuscandoImagem(false);
+    }
+  }, [listagem, mostrarToast]);
+
+  const limparBuscaImagem = useCallback(() => {
+    setScoresSimilaridade(null);
+    setImgReferenciaPreview(null);
+  }, []);
+
+  // Interceptador global de Ctrl+V de imagem para busca reversa
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+              const dataUrl = loadEvent.target?.result as string;
+              if (dataUrl) {
+                setImgReferenciaPreview(dataUrl);
+                setModalBuscaImagem(true);
+              }
+            };
+            reader.readAsDataURL(file);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
+
   // Lista filtrada e ordenada (pastas sempre primeiro, estilo Windows Explorer)
   const itensVisiveis = useMemo(() => {
     if (!listagem) return [];
@@ -418,6 +585,17 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
           (i) => i.nome.toLowerCase().includes(q) || i.extensao.toLowerCase().includes(q)
         )
       : [...listagem.itens];
+
+    // Se busca visual estiver ativa, ordena por similaridade visual!
+    if (scoresSimilaridade) {
+      filtrados.sort((a, b) => {
+        if (a.eh_pasta !== b.eh_pasta) return a.eh_pasta ? 1 : -1;
+        const sa = scoresSimilaridade[a.caminho] ?? -1;
+        const sb = scoresSimilaridade[b.caminho] ?? -1;
+        return sb - sa;
+      });
+      return filtrados;
+    }
 
     const mult = sortDir === "asc" ? 1 : -1;
     filtrados.sort((a, b) => {
@@ -434,7 +612,7 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
       }
     });
     return filtrados;
-  }, [listagem, busca, sortKey, sortDir]);
+  }, [listagem, busca, sortKey, sortDir, scoresSimilaridade]);
 
   const itensSelecionadosObj = useMemo(() => {
     const set = new Set(selecionados);
@@ -1393,26 +1571,42 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
             )}
           </div>
 
-          {/* Busca na pasta */}
-          <div className="relative w-56 shrink-0">
-            <Search className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              ref={buscaRef}
-              type="text"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Filtrar pasta (Ctrl+F)"
-              className="w-full h-8 pl-8 pr-7 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs font-mono text-slate-800 dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-blue-500"
-            />
-            {busca && (
-              <button
-                type="button"
-                onClick={() => setBusca("")}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 cursor-pointer"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            )}
+          {/* Busca na pasta + Busca por Imagem */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="relative w-48 sm:w-56 shrink-0">
+              <Search className="w-3.5 h-3.5 text-slate-400 dark:text-zinc-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                ref={buscaRef}
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Filtrar (Ctrl+F)"
+                className="w-full h-8 pl-8 pr-7 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs font-mono text-slate-800 dark:text-zinc-200 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-blue-500"
+              />
+              {busca && (
+                <button
+                  type="button"
+                  onClick={() => setBusca("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setModalBuscaImagem(true)}
+              className={`h-8 px-2.5 rounded border flex items-center gap-1.5 text-xs font-mono transition-colors cursor-pointer ${
+                scoresSimilaridade
+                  ? "border-blue-500 bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold"
+                  : "border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800"
+              }`}
+              title="Buscar por imagem / foto de referência (ou cole com Ctrl+V)"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">BUSCAR FOTO</span>
+            </button>
           </div>
         </div>
 
@@ -1521,6 +1715,28 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
                 CORTAR PAINEL{paineisSelecionados.length > 0 ? ` (${paineisSelecionados.length})` : ""}
               </span>
             </button>
+
+            <span className="h-4 w-px bg-slate-200 dark:bg-zinc-800 mx-0.5" />
+
+            {/* Sentinela de Pasta: Monitoramento de novos arquivos salvos */}
+            <button
+              type="button"
+              onClick={alternarMonitoramento}
+              disabled={!listagem || operando}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded border font-semibold transition-all cursor-pointer ${
+                pastaMonitorada
+                  ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 shadow-2xs"
+                  : "border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800"
+              }`}
+              title={
+                pastaMonitorada
+                  ? `Monitorando novos arquivos em: ${pastaMonitorada}. Clique para pausar.`
+                  : "Ativar alerta sonoro e notificação quando um novo arquivo for salvo nesta pasta"
+              }
+            >
+              <Bell className={`w-3.5 h-3.5 ${pastaMonitorada ? "text-emerald-600 dark:text-emerald-400 animate-bounce" : ""}`} />
+              <span>{pastaMonitorada ? "MONITORANDO" : "MONITORAR"}</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-1">
@@ -1581,6 +1797,95 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
           </div>
         </div>
       </div>
+
+      {/* Banner de alerta: Novo arquivo salvo em tempo real */}
+      {novoArquivoAlerta && (
+        <div className="bg-emerald-600 text-white px-4 py-2 text-xs font-mono flex items-center justify-between shadow-md shrink-0 animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 min-w-0">
+            <BellRing className="w-4 h-4 animate-bounce shrink-0" />
+            <span className="truncate">
+              <strong>NOVO ARQUIVO SALVO:</strong> {novoArquivoAlerta.nome} ({formatBytes(novoArquivoAlerta.tamanho_bytes)})
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {ehCortavel({ nome: novoArquivoAlerta.nome, eh_pasta: false } as any) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const it: ExplorerItem = {
+                    caminho: novoArquivoAlerta.caminho,
+                    nome: novoArquivoAlerta.nome,
+                    eh_pasta: false,
+                    extensao: novoArquivoAlerta.extensao,
+                    tamanho_bytes: novoArquivoAlerta.tamanho_bytes,
+                    modificado_ms: Date.now(),
+                    modificado_fmt: "Agora",
+                    oculto: false,
+                  };
+                  abrirModalCorte([it]);
+                }}
+                className="px-2.5 py-0.5 rounded bg-white text-emerald-800 font-bold hover:bg-emerald-100 cursor-pointer shadow-xs"
+              >
+                ✂ CORTAR PAINEL
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                const it: ExplorerItem = {
+                  caminho: novoArquivoAlerta.caminho,
+                  nome: novoArquivoAlerta.nome,
+                  eh_pasta: false,
+                  extensao: novoArquivoAlerta.extensao,
+                  tamanho_bytes: novoArquivoAlerta.tamanho_bytes,
+                  modificado_ms: Date.now(),
+                  modificado_fmt: "Agora",
+                  oculto: false,
+                };
+                abrirItem(it);
+              }}
+              className="px-2 py-0.5 rounded bg-emerald-700 hover:bg-emerald-800 text-white cursor-pointer"
+            >
+              ABRIR
+            </button>
+            <button
+              type="button"
+              onClick={() => setNovoArquivoAlerta(null)}
+              className="p-1 hover:bg-emerald-700 rounded cursor-pointer opacity-80 hover:opacity-100"
+              title="Fechar alerta"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Banner de status: Busca por Imagem (Similaridade Visual) */}
+      {scoresSimilaridade && (
+        <div className="bg-blue-50 dark:bg-blue-950/60 border-b border-blue-200 dark:border-blue-900/60 px-4 py-1.5 text-xs font-mono flex items-center justify-between text-blue-900 dark:text-blue-200 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span className="truncate">
+              Exibindo arquivos ordenados por <strong>similaridade visual</strong> com a foto de referência
+            </span>
+            {imgReferenciaPreview && (
+              <img
+                src={imgReferenciaPreview}
+                alt="Ref"
+                className="w-6 h-6 object-cover rounded border border-blue-300 dark:border-blue-700 shrink-0 ml-1"
+              />
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={limparBuscaImagem}
+            className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white dark:bg-zinc-900 border border-blue-300 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-zinc-800 cursor-pointer text-blue-800 dark:text-blue-200 shrink-0"
+          >
+            <X className="w-3 h-3" />
+            <span>LIMPAR BUSCA VISUAL</span>
+          </button>
+        </div>
+      )}
 
       {/* Notificação / Toast operacional */}
       {toast && (
@@ -1878,6 +2183,17 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
                                   {tagPlaca}
                                 </span>
                               )}
+                              {scoresSimilaridade && scoresSimilaridade[item.caminho] !== undefined && (
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold shrink-0 shadow-2xs ${
+                                  scoresSimilaridade[item.caminho] >= 85
+                                    ? "bg-emerald-600 text-white"
+                                    : scoresSimilaridade[item.caminho] >= 65
+                                    ? "bg-blue-600 text-white"
+                                    : "bg-slate-500 text-white"
+                                }`}>
+                                  {scoresSimilaridade[item.caminho].toFixed(0)}% similar
+                                </span>
+                              )}
                               {thumbInfo && (
                                 <span className="text-[10px] font-mono tabular-nums text-blue-600 dark:text-blue-400 shrink-0">
                                   {thumbInfo.largura_cm.toFixed(0)}×{thumbInfo.altura_cm.toFixed(0)}cm
@@ -1989,7 +2305,18 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
                         ) : null}
 
                         {/* Quadro da Miniatura Proporcional */}
-                        <div className="w-full h-28 rounded bg-slate-100/70 dark:bg-zinc-950/70 border border-slate-100 dark:border-zinc-800/60 flex items-center justify-center p-1.5 overflow-hidden">
+                        <div className="w-full h-28 rounded bg-slate-100/70 dark:bg-zinc-950/70 border border-slate-100 dark:border-zinc-800/60 flex items-center justify-center p-1.5 overflow-hidden relative">
+                          {scoresSimilaridade && scoresSimilaridade[item.caminho] !== undefined && (
+                            <span className={`absolute top-1 left-1 z-10 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold shadow-xs ${
+                              scoresSimilaridade[item.caminho] >= 85
+                                ? "bg-emerald-600 text-white"
+                                : scoresSimilaridade[item.caminho] >= 65
+                                ? "bg-blue-600 text-white"
+                                : "bg-slate-600 text-white"
+                            }`}>
+                              {scoresSimilaridade[item.caminho].toFixed(0)}%
+                            </span>
+                          )}
                           {isImg && thumbInfo?.miniatura_data_url ? (
                             <img
                               src={thumbInfo.miniatura_data_url}
@@ -2846,6 +3173,131 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Busca Visual por Imagem (Similaridade / Reverse Search) */}
+      {modalBuscaImagem && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-lg rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#121215] shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#0c0c0e] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="font-mono text-xs font-bold text-slate-800 dark:text-zinc-100">
+                  BUSCAR ARQUIVO POR IMAGEM DE REFERÊNCIA
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalBuscaImagem(false)}
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 font-mono text-xs">
+              <p className="text-slate-600 dark:text-zinc-400 text-[11px] leading-relaxed">
+                Cole um <strong>print do WhatsApp (Ctrl+V)</strong>, arraste uma foto ou selecione uma imagem para localizar instantaneamente qual arquivo desta pasta corresponde a ela através de inteligência visual.
+              </p>
+
+              {/* Dropzone / Preview */}
+              <div
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const f = e.dataTransfer.files[0];
+                  if (f) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      if (ev.target?.result) setImgReferenciaPreview(ev.target.result as string);
+                    };
+                    reader.readAsDataURL(f);
+                  }
+                }}
+                className={`relative w-full h-48 rounded border-2 border-dashed flex flex-col items-center justify-center p-3 transition-colors ${
+                  imgReferenciaPreview
+                    ? "border-blue-500 bg-blue-50/20 dark:bg-blue-950/20"
+                    : "border-slate-300 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-900/50 hover:border-blue-400"
+                }`}
+              >
+                {imgReferenciaPreview ? (
+                  <div className="relative w-full h-full flex items-center justify-center">
+                    <img
+                      src={imgReferenciaPreview}
+                      alt="Referência"
+                      className="max-w-full max-h-full object-contain rounded shadow-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setImgReferenciaPreview(null)}
+                      className="absolute top-1 right-1 p-1 rounded-full bg-slate-900/80 text-white hover:bg-red-600 cursor-pointer"
+                      title="Remover imagem"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-center text-slate-500 dark:text-zinc-400">
+                    <Upload className="w-8 h-8 text-blue-500/70" />
+                    <span className="font-semibold text-xs">Arraste uma foto aqui ou cole com Ctrl+V</span>
+                    <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                      Print do WhatsApp, JPEG, PNG, WEBP ou TIFF
+                    </span>
+                    <label className="mt-1 px-3 py-1 rounded bg-slate-200 dark:bg-zinc-800 hover:bg-slate-300 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 text-[11px] cursor-pointer">
+                      SELECIONAR ARQUIVO
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              if (ev.target?.result) setImgReferenciaPreview(ev.target.result as string);
+                            };
+                            reader.readAsDataURL(f);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-[#0c0c0e] flex items-center justify-between gap-2 font-mono text-xs">
+              <button
+                type="button"
+                onClick={() => setModalBuscaImagem(false)}
+                className="px-3 py-1.5 rounded border border-slate-300 dark:border-zinc-700 hover:bg-slate-100 dark:hover:bg-zinc-800 cursor-pointer"
+              >
+                CANCELAR
+              </button>
+
+              <button
+                type="button"
+                disabled={!imgReferenciaPreview || buscandoImagem}
+                onClick={() => {
+                  if (imgReferenciaPreview) executarBuscaPorImagem(imgReferenciaPreview);
+                }}
+                className="px-4 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+              >
+                {buscandoImagem ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>COMPARANDO ARQUIVOS...</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>LOCALIZAR NA PASTA ATUAL</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -227,6 +227,10 @@ pub fn run() {
             commands::explorer::explorer_copiar_ou_mover,
             commands::explorer::explorer_revelar_no_sistema,
             commands::explorer::explorer_inspecionar_imagem,
+            commands::explorer::explorer_iniciar_monitoramento,
+            commands::explorer::explorer_parar_monitoramento,
+            commands::explorer::explorer_pasta_monitorada,
+            commands::explorer::explorer_buscar_por_imagem,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
