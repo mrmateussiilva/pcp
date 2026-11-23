@@ -3,6 +3,7 @@ pub mod calandragem_srv;
 pub mod config;
 pub mod consumo;
 pub mod cortador;
+pub mod explorer;
 pub mod global_log;
 pub mod imaging;
 pub mod notepad_srv;

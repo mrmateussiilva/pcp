@@ -20,6 +20,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::{mpsc, watch};
 
 const MAX_TEXT_LEN: usize = 200_000;
+const MAX_HISTORICO: usize = 40;
 const NOTEPAD_HTML: &str = include_str!("../../assets/notepad.html");
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -29,6 +30,15 @@ pub struct NotepadStateData {
     pub updated_at: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotepadHistoricoItem {
+    pub id: u64,
+    pub text: String,
+    pub author: String,
+    pub updated_at: String,
+    pub tamanho: usize,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct NotepadStatusPayload {
     pub rodando: bool,
@@ -36,10 +46,12 @@ pub struct NotepadStatusPayload {
     pub ws_port: u16,
     pub http_port: u16,
     pub link: String,
+    pub ip_local: String,
     pub text: String,
     pub author: Option<String>,
     pub updated_at: Option<String>,
     pub clients: usize,
+    pub total_revisoes: usize,
 }
 
 #[derive(Debug, Serialize)]
@@ -74,6 +86,8 @@ pub fn ip_local() -> String {
 struct Inner {
     state_file: PathBuf,
     data: Mutex<NotepadStateData>,
+    history: Mutex<Vec<NotepadHistoricoItem>>,
+    history_next_id: AtomicU64,
     clients: Mutex<HashMap<u64, mpsc::UnboundedSender<String>>>,
     next_id: AtomicU64,
     http_ativo: Mutex<bool>,
@@ -86,7 +100,21 @@ impl Inner {
     fn load(&self) {
         if let Ok(raw) = fs::read_to_string(&self.state_file) {
             if let Ok(parsed) = serde_json::from_str::<NotepadStateData>(&raw) {
+                let text_len = parsed.text.len();
+                let initial_history = NotepadHistoricoItem {
+                    id: self.history_next_id.fetch_add(1, Ordering::Relaxed),
+                    text: parsed.text.clone(),
+                    author: parsed.author.clone().unwrap_or_else(|| "inicial".into()),
+                    updated_at: parsed
+                        .updated_at
+                        .clone()
+                        .unwrap_or_else(|| Local::now().format("%Y-%m-%dT%H:%M:%S").to_string()),
+                    tamanho: text_len,
+                };
                 *self.data.lock().unwrap() = parsed;
+                if text_len > 0 {
+                    self.history.lock().unwrap().push(initial_history);
+                }
                 return;
             }
         }
@@ -109,20 +137,24 @@ impl Inner {
         let data = self.data.lock().unwrap().clone();
         let clients = self.clients.lock().unwrap().len();
         let http_ativo = *self.http_ativo.lock().unwrap();
+        let total_revisoes = self.history.lock().unwrap().len();
+        let ip = ip_local();
         NotepadStatusPayload {
             rodando,
             http_ativo,
             ws_port: self.ws_port,
             http_port: self.http_port,
             link: if http_ativo {
-                format!("http://{}:{}", ip_local(), self.http_port)
+                format!("http://{}:{}", ip, self.http_port)
             } else {
-                format!("ws://{}:{}", ip_local(), self.ws_port)
+                format!("ws://{}:{}", ip, self.ws_port)
             },
+            ip_local: ip,
             text: data.text,
             author: data.author,
             updated_at: data.updated_at,
             clients,
+            total_revisoes,
         }
     }
 
@@ -159,18 +191,75 @@ impl Inner {
         let _ = self.app.emit("notepad-estado", self.status_payload(true));
     }
 
+    fn registrar_historico(&self, text: &str, author: &str, updated_at: &str) {
+        let mut hist = self.history.lock().unwrap();
+        // Não duplica se o topo for idêntico
+        if let Some(ultimo) = hist.last() {
+            if ultimo.text == text {
+                return;
+            }
+        }
+        let item = NotepadHistoricoItem {
+            id: self.history_next_id.fetch_add(1, Ordering::Relaxed),
+            text: text.to_string(),
+            author: author.to_string(),
+            updated_at: updated_at.to_string(),
+            tamanho: text.len(),
+        };
+        hist.push(item);
+        if hist.len() > MAX_HISTORICO {
+            hist.remove(0);
+        }
+    }
+
     fn update_text(&self, text: String, author: String) {
         let truncated_author: String = author.chars().take(60).collect();
         let updated_at = Local::now().format("%Y-%m-%dT%H:%M:%S").to_string();
+
         let snapshot = {
             let mut data = self.data.lock().unwrap();
+            // Salva histórico da versão anterior se ela não estava vazia e mudou significativamente
+            if !data.text.is_empty() && data.text != text {
+                let ant_author = data.author.clone().unwrap_or_else(|| "anterior".into());
+                let ant_updated = data
+                    .updated_at
+                    .clone()
+                    .unwrap_or_else(|| updated_at.clone());
+                self.registrar_historico(&data.text, &ant_author, &ant_updated);
+            }
+
             data.text = text;
             data.author = Some(truncated_author);
             data.updated_at = Some(updated_at);
             data.clone()
         };
+
         let _ = self.save_atomico(&snapshot);
         self.broadcast_and_emit();
+    }
+
+    fn restaurar_versao(&self, versao_id: u64) -> Result<(), String> {
+        let item_opt = {
+            let hist = self.history.lock().unwrap();
+            hist.iter().find(|i| i.id == versao_id).cloned()
+        };
+
+        match item_opt {
+            Some(item) => {
+                let autor = format!("Restaurado ({})", item.author);
+                self.update_text(item.text, autor);
+                Ok(())
+            }
+            None => Err(format!("Revisão ID {versao_id} não encontrada.")),
+        }
+    }
+
+    fn obter_historico(&self) -> Vec<NotepadHistoricoItem> {
+        self.history.lock().unwrap().clone()
+    }
+
+    fn limpar_historico(&self) {
+        self.history.lock().unwrap().clear();
     }
 }
 
@@ -202,6 +291,8 @@ impl NotepadService {
         let inner = Arc::new(Inner {
             state_file,
             data: Mutex::new(NotepadStateData::default()),
+            history: Mutex::new(Vec::new()),
+            history_next_id: AtomicU64::new(1),
             clients: Mutex::new(HashMap::new()),
             next_id: AtomicU64::new(1),
             http_ativo: Mutex::new(false),
@@ -215,7 +306,7 @@ impl NotepadService {
             .await
             .map_err(|e| {
                 format!(
-                    "Não foi possível ligar o WebSocket na porta {ws_port}: {e}. O ws_server.py antigo está aberto?"
+                    "Não foi possível ligar o WebSocket na porta {ws_port}: {e}. A porta está em uso por outro processo?"
                 )
             })?;
 
@@ -224,7 +315,7 @@ impl NotepadService {
 
         let (stop_tx, stop_rx) = watch::channel(false);
 
-        // WebSocket server
+        // Servidor WebSocket Axum
         let ws_app = Router::new()
             .route("/", get(ws_handler))
             .with_state(inner.clone());
@@ -237,7 +328,7 @@ impl NotepadService {
                 .await;
         });
 
-        // HTTP server (opcional caso a porta esteja ocupada)
+        // Servidor HTTP Axum servindo a interface web para navegadores na LAN
         if let Some(listener) = http_listener {
             let html_pronto = Arc::new(NOTEPAD_HTML.replace("__WS_PORT__", &ws_port.to_string()));
             let http_app = Router::new()
@@ -280,10 +371,12 @@ impl NotepadService {
             ws_port: 8765,
             http_port: 8766,
             link: String::new(),
+            ip_local: ip_local(),
             text: String::new(),
             author: None,
             updated_at: None,
             clients: 0,
+            total_revisoes: 0,
         };
         let _ = app.emit("notepad-estado", st.clone());
         st
@@ -293,6 +386,31 @@ impl NotepadService {
         let guard = self.running.lock().unwrap();
         if let Some((ref inner, _)) = *guard {
             inner.update_text(text, author);
+        }
+    }
+
+    pub fn restaurar_versao(&self, versao_id: u64) -> Result<(), String> {
+        let guard = self.running.lock().unwrap();
+        if let Some((ref inner, _)) = *guard {
+            inner.restaurar_versao(versao_id)
+        } else {
+            Err("Serviço de notepad não está em execução.".into())
+        }
+    }
+
+    pub fn obter_historico(&self) -> Vec<NotepadHistoricoItem> {
+        let guard = self.running.lock().unwrap();
+        if let Some((ref inner, _)) = *guard {
+            inner.obter_historico()
+        } else {
+            Vec::new()
+        }
+    }
+
+    pub fn limpar_historico(&self) {
+        let guard = self.running.lock().unwrap();
+        if let Some((ref inner, _)) = *guard {
+            inner.limpar_historico();
         }
     }
 
@@ -307,10 +425,12 @@ impl NotepadService {
                 ws_port: 8765,
                 http_port: 8766,
                 link: String::new(),
+                ip_local: ip_local(),
                 text: String::new(),
                 author: None,
                 updated_at: None,
                 clients: 0,
+                total_revisoes: 0,
             }
         }
     }

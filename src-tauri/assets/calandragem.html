@@ -3,316 +3,748 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel de Calandragem - Produção</title>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<title>Painel de Calandragem — PCP Central</title>
 <style>
   :root {
-    --bg: #eef1f5;
-    --ink: #1a2233;
-    --accent: #2f6fed;
-    --accent-dark: #17357f;
-    --prio-alta: #dc3545;
-    --prio-media: #fd7e14;
-    --prio-baixa: #6c757d;
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --card-header: #f1f5f9;
+    --border: #e2e8f0;
+    --border-strong: #cbd5e1;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --success: #059669;
+    --success-bg: #ecfdf5;
+    --warning: #d97706;
+    --warning-bg: #fffbeb;
+    --danger: #dc2626;
+    --danger-bg: #fef2f2;
+    --prio-alta: #dc2626;
+    --prio-media: #d97706;
+    --prio-baixa: #64748b;
     --running: #0d9488;
-    --font-display: 'Space Grotesk', system-ui, sans-serif;
-    --font-body: 'Inter', system-ui, sans-serif;
-    --font-mono: 'IBM Plex Mono', Consolas, monospace;
-  }
-  body { background: var(--bg); font-family: var(--font-body); color: var(--ink); }
-  h1, h5, .card-title, .machine-tab, .btn, .modal-title { font-family: var(--font-display); }
-
-  .header-bar {
-    background: linear-gradient(135deg, #101a35, #1f4fc4 55%, #2f6fed);
-    color: #fff;
-    padding: 1.25rem 0;
+    --running-bg: #f0fdfa;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   }
 
-  .card-painel { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); background: #fff; margin-bottom: 1.5rem; }
-  .painel-destaque { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 600; color: var(--accent-dark); }
-  .painel-label { font-size: 0.78rem; text-transform: uppercase; color: #6c757d; font-weight: 600; margin-bottom: 0.2rem; letter-spacing: 0.04em; }
-
-  /* Cards de produção */
-  .card-producao {
-    border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    position: relative; overflow: hidden; background: #fff;
-    border-left: 5px solid var(--accent);
-    transition: transform .15s ease, box-shadow .15s ease;
-    cursor: grab;
+  html.dark {
+    --bg: #09090b;
+    --card-bg: #111114;
+    --card-header: #18181b;
+    --border: #27272a;
+    --border-strong: #3f3f46;
+    --text: #f4f4f5;
+    --text-muted: #a1a1aa;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --success: #10b981;
+    --success-bg: rgba(16, 185, 129, 0.12);
+    --warning: #f59e0b;
+    --warning-bg: rgba(245, 158, 11, 0.12);
+    --danger: #ef4444;
+    --danger-bg: rgba(239, 68, 68, 0.12);
+    --running: #14b8a6;
+    --running-bg: rgba(20, 184, 166, 0.12);
   }
-  .card-producao:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
-  .card-producao[data-prioridade="alta"] { border-left-color: var(--prio-alta); }
-  .card-producao[data-prioridade="media"] { border-left-color: var(--prio-media); }
-  .card-producao[data-prioridade="baixa"] { border-left-color: var(--prio-baixa); }
-  .card-producao[data-status="andamento"] { border-left-color: var(--running) !important; }
-  .card-producao[data-status="andamento"] .ordem-badge { background: var(--running); }
-  .card-producao.dragging { opacity: 0.4; cursor: grabbing; }
-  .card-producao.drag-over { box-shadow: 0 0 0 3px var(--accent); }
 
-  .ordem-badge {
-    position: absolute; top: 0; left: 0; background: var(--accent); color: #fff;
-    font-weight: 700; padding: 0.35rem 0.75rem; border-bottom-right-radius: 12px; font-size: 0.9rem;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 14px;
+    -webkit-font-smoothing: antialiased;
   }
-  .drag-handle { position: absolute; top: 0; right: 0; padding: 0.35rem 0.6rem; color: #adb5bd; }
 
-  .card-concluido { background: #f8f9fa !important; border-left-color: #198754 !important; opacity: 0.85; cursor: default; }
-  .card-concluido .card-title { text-decoration: line-through; color: #6c757d; }
-  .card-concluido .ordem-badge { background: #198754; }
-  .card-concluido .drag-handle { display: none; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 
-  .badge-prioridade { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 0.3rem 0.55rem; color: #fff; }
-  .badge-prioridade.alta { background: var(--prio-alta); }
-  .badge-prioridade.media { background: var(--prio-media); }
-  .badge-prioridade.baixa { background: var(--prio-baixa); }
-  .badge-andamento {
-    background: var(--running); color: #fff; font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
-    padding: 0.3rem 0.55rem; display: inline-flex; align-items: center; gap: 0.35rem;
+  /* Cabeçalho do navegador (escondido se embed=1) */
+  .top-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 12px;
   }
-  .dot-pulse { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: pulse 1.4s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .top-header.embed { display: none !important; }
+  .top-title { font-weight: 700; font-size: 13.5px; display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .top-meta { display: flex; align-items: center; gap: 10px; }
 
-  .card-footer-tempo {
-    background: #e9ecef; padding: 8px 15px; font-size: 0.8rem; font-family: var(--font-mono);
-    font-weight: 600; color: #495057; border-top: 1px solid #dee2e6;
-    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;
+  /* Toolbar de Máquinas */
+  .machine-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
   }
-  .btn-icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
-
-  /* Abas de máquina */
-  #machine-tabs { background: #fff; border-radius: 12px; padding: 0.6rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .machine-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
   .machine-tab {
-    border: 1px solid #dee2e6; background: #fff; color: #495057; border-radius: 8px;
-    padding: 0.5rem 0.9rem; font-weight: 600; font-size: 0.9rem;
-    display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.1s;
   }
-  .machine-tab:hover { border-color: var(--accent); color: var(--accent); }
-  .machine-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .machine-tab-count { background: rgba(0,0,0,0.1); border-radius: 999px; font-size: 0.72rem; padding: 0.05rem 0.5rem; }
-  .machine-tab.active .machine-tab-count { background: rgba(255,255,255,0.25); }
-  .machine-tab-edit { opacity: 0; font-size: 0.75rem; }
-  .machine-tab:hover .machine-tab-edit { opacity: 0.7; }
-  .btn-add-machine {
-    border: 1px dashed #adb5bd; background: transparent; color: #6c757d;
-    border-radius: 8px; padding: 0.5rem 0.8rem; font-weight: 600; font-size: 0.9rem;
+  .machine-tab:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
+  }
+  .machine-tab.active {
+    background: var(--text);
+    color: var(--card-bg);
+    border-color: var(--text);
+  }
+  .tab-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(128,128,128,0.2);
   }
 
-  .badge-impressora { font-size: 0.68rem; font-weight: 700; padding: 0.3rem 0.55rem; background: #e7ecf8; color: var(--accent-dark); }
-  .badge-nao-impresso { font-size: 0.68rem; font-weight: 700; padding: 0.3rem 0.55rem; background: #fff3cd; color: #8a5a00; }
-  .cfg-linha { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
-  .cfg-linha .cfg-nome { flex: 1; font-size: 0.85rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .cfg-linha input { width: 80px; }
+  .machine-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
 
-  #toast-container { position: fixed; bottom: 1rem; right: 1rem; z-index: 9999; }
+  /* Grid de KPIs (4 Cards no Topo) */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 500px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+  }
 
-  @media (max-width: 768px) {
-    #machine-tabs { overflow-x: auto; flex-wrap: nowrap !important; }
-    .btn-icon { width: 40px; height: 40px; }
-    .drag-handle { display: none; }
-    input, select, button { font-size: 16px !important; }
+  .kpi-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .kpi-label {
+    font-size: 10px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .kpi-value {
+    font-size: 20px;
+    font-weight: 700;
+    font-family: var(--mono);
+    color: var(--text);
+  }
+  .kpi-value.accent { color: var(--accent); }
+  .kpi-value.success { color: var(--success); }
+
+  /* Barra de Adicionar Rolo (Direta e Limpa) */
+  .add-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+  }
+  .add-form {
+    display: grid;
+    grid-template-columns: 2.2fr 110px 110px 1.8fr auto;
+    gap: 8px;
+    align-items: end;
+  }
+  @media (max-width: 850px) {
+    .add-form { grid-template-columns: 1fr 1fr; }
+    .add-form button { grid-column: span 2; }
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 3px; }
+  .form-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+  .form-control {
+    width: 100%;
+    padding: 6px 9px;
+    border: 1px solid var(--border-strong);
+    background: var(--card-bg);
+    color: var(--text);
+    border-radius: 4px;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .form-control:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  /* Barra de Filtros e Busca */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .filter-chips {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .chip {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-muted);
+  }
+  .chip:hover { color: var(--text); }
+  .chip.active {
+    background: var(--card-header);
+    color: var(--text);
+    border-color: var(--border-strong);
+  }
+  .search-box {
+    width: 220px;
+  }
+
+  /* Botões */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 11px;
+    border: 1px solid var(--border-strong);
+    background: var(--card-bg);
+    color: var(--text);
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background 0.1s, border-color 0.1s;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { background: var(--card-header); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn-success { background: var(--success); border-color: var(--success); color: #fff; }
+  .btn-danger { color: var(--danger); border-color: rgba(220,38,38,0.3); }
+  .btn-danger:hover:not(:disabled) { background: var(--danger-bg); }
+  .btn-sm { padding: 4px 8px; font-size: 11px; }
+  .btn-icon { width: 28px; height: 28px; padding: 0; }
+
+  /* Fila de Cards (Grid) */
+  .queue-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+  }
+  .queue-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+    transition: border-color 0.1s, box-shadow 0.1s;
+  }
+  .queue-card[data-prio="alta"] { border-left-color: var(--prio-alta); }
+  .queue-card[data-prio="media"] { border-left-color: var(--prio-media); }
+  .queue-card[data-prio="baixa"] { border-left-color: var(--prio-baixa); }
+  .queue-card[data-status="andamento"] {
+    border-left-color: var(--running) !important;
+    box-shadow: 0 0 0 1px var(--running);
+  }
+  .queue-card.done {
+    border-left-color: var(--success) !important;
+    opacity: 0.65;
+    cursor: default;
+  }
+  .queue-card.done .card-title { text-decoration: line-through; }
+  .queue-card.dragging { opacity: 0.3; cursor: grabbing; }
+  .queue-card.drag-over { border-top: 3px solid var(--accent); }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px 4px;
+    gap: 8px;
+  }
+  .card-order {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 3px;
+    background: var(--card-header);
+    border: 1px solid var(--border);
+  }
+  .queue-card[data-status="andamento"] .card-order {
+    background: var(--running);
+    color: #fff;
+    border-color: var(--running);
+  }
+  .card-title {
+    font-weight: 700;
+    font-size: 13.5px;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .card-meters {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .card-mid {
+    padding: 6px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+  }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .badge-alta { background: rgba(220,38,38,0.12); color: var(--prio-alta); }
+  .badge-media { background: rgba(217,119,6,0.12); color: var(--prio-media); }
+  .badge-baixa { background: rgba(100,116,139,0.15); color: var(--prio-baixa); }
+  .badge-running { background: var(--running); color: #fff; }
+  .badge-noimp { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(217,119,6,0.3); }
+  .badge-imp { background: var(--card-header); color: var(--text-muted); border: 1px solid var(--border); }
+  .dot-pulse { width: 5px; height: 5px; border-radius: 50%; background: #fff; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+  .card-desc {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text-muted);
+    word-break: break-word;
+    line-height: 1.35;
+  }
+
+  .card-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding-top: 6px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+  }
+  .card-actions .spacer { flex: 1; }
+
+  .card-foot {
+    padding: 6px 12px;
+    background: var(--card-header);
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-foot strong { color: var(--text); }
+  .card-foot .running-label { color: var(--running); font-weight: 700; }
+
+  /* Pill do Notepad */
+  .ws-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    cursor: pointer;
+  }
+  .ws-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+  .ws-status.connected { color: var(--success); border-color: rgba(5,150,105,0.3); background: var(--success-bg); }
+  .ws-status.connected .ws-dot { background: var(--success); }
+
+  /* Modais */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 1000;
+  }
+  .modal-box {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    width: 100%;
+    max-width: 480px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+  }
+  .modal-header {
+    padding: 10px 14px;
+    background: var(--card-header);
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .modal-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; max-height: 80vh; overflow-y: auto; }
+  .modal-footer {
+    padding: 10px 14px;
+    background: var(--card-header);
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+  }
+
+  .hidden { display: none !important; }
+  .empty-state {
+    grid-column: 1 / -1;
+    padding: 42px 20px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-muted);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: var(--card-bg);
+    line-height: 1.6;
   }
 </style>
 </head>
 <body>
 
-<div class="header-bar mb-4">
-  <div class="container-fluid px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-    <h1 class="h4 mb-0"><i class="fa-solid fa-layer-group me-2"></i>Produção — Calandragem</h1>
-    <span id="notepad-status" class="badge rounded-pill bg-secondary" style="cursor:pointer;" title="Clique para configurar"
-          onclick="document.getElementById('notepad-config').classList.toggle('d-none')">
-      <i class="fa-solid fa-circle-notch fa-spin me-1"></i>Notepad: desconectado
-    </span>
+<!-- Cabeçalho (exibido apenas se acessado fora do PCP Central via browser) -->
+<header id="top-header" class="top-header">
+  <div class="top-title">
+    <span>🔥 Produção — Calandragem</span>
   </div>
-  <div id="notepad-config" class="container-fluid px-4 mt-3 d-none">
-    <div class="card card-painel mb-0">
-      <div class="card-body d-flex align-items-end gap-3 flex-wrap py-3">
-        <div>
-          <label class="form-label small text-muted mb-1">Endereço do Notepad (WebSocket)</label>
-          <input type="text" class="form-control form-control-sm" id="notepad-ws-url" style="min-width:260px" placeholder="ws://192.168.0.10:8765">
+  <div class="top-meta">
+    <div id="ws-status" class="ws-status" onclick="conectarNotepad()" title="Clique para reconectar ao Notepad">
+      <span class="ws-dot"></span>
+      <span id="ws-text">Notepad: conectando...</span>
+    </div>
+    <button type="button" class="btn btn-sm" onclick="toggleTheme()" id="btn-theme">Tema</button>
+  </div>
+</header>
+
+<!-- Barra de Máquinas e Ações Globais -->
+<div class="machine-bar">
+  <div class="machine-tabs" id="machine-tabs"></div>
+  <div class="machine-actions">
+    <button type="button" class="btn btn-sm" onclick="abrirSetup()" title="Configurações de velocidade e setup da calandra">⚙️ Setup & Velocidades</button>
+    <button type="button" class="btn btn-sm" onclick="ordenarPorPrioridade()" title="Ordenar rolos pendentes por prioridade">⇅ Prioridade</button>
+    <button type="button" class="btn btn-sm btn-danger" onclick="limparFila()" title="Limpar fila da máquina ativa">🗑️ Limpar</button>
+    <div class="ws-status mono" id="clock-display" style="cursor:default;" title="Horário do sistema">--:--:--</div>
+  </div>
+</div>
+
+<!-- 4 KPIs Horizontais Diretos -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-label">Metros Pendentes</div>
+    <div class="kpi-value accent" id="kpi-metros">0,00 m</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Tempo Estimado (c/ trocas)</div>
+    <div class="kpi-value" id="kpi-tempo">0h 00m</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Previsão de Término</div>
+    <div class="kpi-value success" id="kpi-fim">--:--</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-label">Rolos na Fila</div>
+    <div class="kpi-value" id="kpi-rolos">0 / 0</div>
+  </div>
+</div>
+
+<!-- Barra de Adição Direta -->
+<div class="add-panel">
+  <form id="form-add" class="add-form">
+    <div class="form-group">
+      <label class="form-label" for="add-nome">Material / Rolo (Tecla N)</label>
+      <input type="text" id="add-nome" class="form-control" placeholder="Ex: DryFit / Rolo T05" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="add-metros">Metros</label>
+      <input type="number" step="0.01" min="0.01" id="add-metros" class="form-control mono" placeholder="0.00" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="add-prio">Prioridade</label>
+      <select id="add-prio" class="form-control">
+        <option value="alta">Alta</option>
+        <option value="media" selected>Média</option>
+        <option value="baixa">Baixa</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="add-desc">Observação / Composição</label>
+      <input type="text" id="add-desc" class="form-control" placeholder="(Opcional)">
+    </div>
+    <button type="submit" class="btn btn-primary" style="height:31px;">+ Adicionar</button>
+  </form>
+</div>
+
+<!-- Barra de Filtros e Busca -->
+<div class="filter-bar">
+  <div class="filter-chips">
+    <div class="chip active" data-filter="todos" onclick="setFiltro('todos')">Todos (<span id="cnt-todos">0</span>)</div>
+    <div class="chip" data-filter="pendentes" onclick="setFiltro('pendentes')">Pendentes (<span id="cnt-pend">0</span>)</div>
+    <div class="chip" data-filter="andamento" onclick="setFiltro('andamento')">Em Produção (<span id="cnt-and">0</span>)</div>
+    <div class="chip" data-filter="concluidos" onclick="setFiltro('concluidos')">Concluídos (<span id="cnt-conc">0</span>)</div>
+  </div>
+  <input type="text" id="filtro-busca" class="form-control search-box mono" placeholder="Filtrar rolo ou tecido..." oninput="renderizar()">
+</div>
+
+<!-- Grid de Cards da Fila -->
+<div class="queue-grid" id="queue-grid"></div>
+
+<!-- Modal: Setup & Velocidades -->
+<div id="modal-setup" class="modal-overlay hidden" onmousedown="if(event.target===this)fecharModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>Setup da Calandra & Tecidos</span>
+      <button type="button" class="btn btn-sm" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="form-group">
+          <label class="form-label">Velocidade Padrão (m/min)</label>
+          <input type="number" id="in-vel" class="form-control mono" step="0.1" min="0.1" max="10" oninput="atualizarConfigMaquina()">
         </div>
-        <button class="btn btn-primary btn-sm" onclick="conectarNotepad()"><i class="fa-solid fa-plug me-2"></i>Conectar</button>
-        <div class="small text-muted ms-auto" id="notepad-last-sync">Última sincronização: nunca</div>
+        <div class="form-group">
+          <label class="form-label">Tempo de Troca (min)</label>
+          <input type="number" id="in-setup" class="form-control mono" min="0" oninput="atualizarConfigMaquina()">
+        </div>
       </div>
+      <div class="form-group">
+        <label class="form-label">Hora de Início da Fila (Vazio = Agora)</label>
+        <input type="time" id="in-inicio" class="form-control mono" onchange="atualizarConfigMaquina()">
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:10px;">
+        <div class="form-label" style="margin-bottom:6px;">Velocidade por Tecido (m/min)</div>
+        <div id="cfg-tecidos" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:4px;">
+          <input type="text" id="cfg-novo-tecido" class="form-control mono" placeholder="Adicionar tecido..." onkeydown="if(event.key==='Enter')adicionarTecido()">
+          <button type="button" class="btn btn-sm" onclick="adicionarTecido()">+ Tecido</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary" onclick="fecharModal()">Concluído</button>
     </div>
   </div>
 </div>
 
-<div class="container-fluid px-4">
-  <div id="machine-tabs" class="d-flex gap-2 mb-4 flex-wrap align-items-center"></div>
-
-  <div class="row">
-    <!-- Painel lateral -->
-    <div class="col-lg-3 col-md-4 mb-4">
-      <div class="card card-painel">
-        <div class="card-body">
-          <h5 class="card-title border-bottom pb-2 mb-3"><i class="fa-solid fa-gear me-2 text-secondary"></i>Setup</h5>
-          <div class="mb-3">
-            <label class="painel-label">Velocidade padrão da calandra (m/min)</label>
-            <input type="number" id="input-velocidade" class="form-control form-control-sm" step="0.1" min="0.1" max="4.9" oninput="atualizarConfigMaquina()">
-          </div>
-          <div class="mb-3">
-            <label class="painel-label">Tempo de Troca (min)</label>
-            <input type="number" id="input-setup-tempo" class="form-control form-control-sm" min="0" oninput="atualizarConfigMaquina()">
-          </div>
-          <div>
-            <label class="painel-label">Hora de Início da Fila</label>
-            <input type="time" id="input-hora-inicio" class="form-control form-control-sm" onchange="atualizarConfigMaquina()">
-          </div>
-        </div>
-      </div>
-
-      <div class="card card-painel">
-        <div class="card-body">
-          <div class="mb-3">
-            <div class="painel-label">Metros Pendentes</div>
-            <div class="painel-destaque" id="resumo-metros">0,00 m</div>
-          </div>
-          <div class="mb-3">
-            <div class="painel-label">Tempo Estimado (c/ trocas)</div>
-            <div class="painel-destaque text-warning-emphasis" id="resumo-tempo">0h 0m</div>
-          </div>
-          <div>
-            <div class="painel-label">Previsão de Término</div>
-            <div class="painel-destaque text-success" id="resumo-fim">--:--</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card card-painel">
-        <div class="card-body">
-          <h5 class="card-title border-bottom pb-2 mb-3"><i class="fa-solid fa-print me-2 text-secondary"></i>Impressoras <small class="text-muted fw-normal">(m/hora)</small></h5>
-          <div id="cfg-impressoras"></div>
-          <div class="small text-muted mt-2">Só entra no tempo quando o rolo está marcado como <b>não impresso</b>.</div>
-        </div>
-      </div>
-
-      <div class="card card-painel">
-        <div class="card-body">
-          <h5 class="card-title border-bottom pb-2 mb-3"><i class="fa-solid fa-scroll me-2 text-secondary"></i>Calandra por tecido <small class="text-muted fw-normal">(m/min)</small></h5>
-          <div id="cfg-tecidos"></div>
-          <div class="input-group input-group-sm mt-2">
-            <input type="text" class="form-control" id="cfg-novo-tecido" placeholder="Adicionar tecido…" onkeydown="if(event.key==='Enter')adicionarTecido()">
-            <button class="btn btn-outline-secondary" onclick="adicionarTecido()"><i class="fa-solid fa-plus"></i></button>
-          </div>
-          <div class="small text-muted mt-2">Se o campo ficar vazio, o tecido usa a velocidade padrão da calandra. Os tecidos que chegam do Notepad aparecem aqui sozinhos.</div>
-        </div>
-      </div>
-
-      <button class="btn btn-outline-secondary w-100 mb-2" onclick="ordenarPorPrioridade()"><i class="fa-solid fa-arrow-down-wide-short me-2"></i>Ordenar por Prioridade</button>
-      <button class="btn btn-outline-danger w-100" onclick="limparFila()"><i class="fa-solid fa-trash-can me-2"></i>Limpar Fila</button>
+<!-- Modal: Editar Rolo -->
+<div id="modal-edit" class="modal-overlay hidden" onmousedown="if(event.target===this)fecharModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span>Editar Rolo de Produção</span>
+      <button type="button" class="btn btn-sm" onclick="fecharModal()">✕</button>
     </div>
-
-    <!-- Fila -->
-    <div class="col-lg-9 col-md-8">
-      <div class="card card-painel">
-        <div class="card-body">
-          <form id="form-producao" class="row g-2 align-items-end">
-            <div class="col-md-3">
-              <label class="form-label small text-muted mb-1">Material / Lote</label>
-              <input type="text" class="form-control" id="input-nome" placeholder="Ex: Tecido DryFit" required>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small text-muted mb-1">Metragem</label>
-              <div class="input-group">
-                <input type="number" step="0.01" class="form-control" id="input-metros" required>
-                <span class="input-group-text">m</span>
-              </div>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small text-muted mb-1">Prioridade</label>
-              <select class="form-select" id="input-prioridade">
-                <option value="alta">Alta</option>
-                <option value="media" selected>Média</option>
-                <option value="baixa">Baixa</option>
-              </select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label small text-muted mb-1">Observação</label>
-              <input type="text" class="form-control" id="input-desc" placeholder="(Opcional)">
-            </div>
-            <div class="col-md-1 d-grid">
-              <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i></button>
-            </div>
-          </form>
+    <div class="modal-body">
+      <input type="hidden" id="edit-idx">
+      <div class="form-group">
+        <label class="form-label">Material / Identificação</label>
+        <input type="text" id="edit-nome" class="form-control">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div class="form-group">
+          <label class="form-label">Metros</label>
+          <input type="number" step="0.01" id="edit-metros" class="form-control mono">
         </div>
-      </div>
-
-      <div id="lista-producoes" class="row g-3"></div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: editar produção -->
-<div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title"><i class="fa-solid fa-pen-to-square me-2"></i>Editar Produção</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="edit-index">
-        <div class="mb-3"><label class="form-label">Nome / Material</label><input type="text" class="form-control" id="edit-nome"></div>
-        <div class="mb-3"><label class="form-label">Metros</label><input type="number" step="0.01" class="form-control" id="edit-metros"></div>
-        <div class="mb-3">
+        <div class="form-group">
           <label class="form-label">Prioridade</label>
-          <select class="form-select" id="edit-prioridade">
-            <option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option>
+          <select id="edit-prio" class="form-control">
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
           </select>
         </div>
-        <div class="mb-3"><label class="form-label">Observação</label><input type="text" class="form-control" id="edit-desc"></div>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" onclick="salvarEdicao()">Salvar</button>
+      <div class="form-group">
+        <label class="form-label">Observação / Composição</label>
+        <input type="text" id="edit-desc" class="form-control">
       </div>
+      <div class="form-group" id="edit-move-box">
+        <label class="form-label">Transferir para Máquina</label>
+        <select id="edit-maquina" class="form-control"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn btn-primary" onclick="salvarEdicao()">Salvar</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: máquina -->
-<div class="modal fade" id="modalMaquina" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalMaquinaTitulo">Nova Máquina</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- Modal: Nova / Editar Máquina -->
+<div id="modal-maq" class="modal-overlay hidden" onmousedown="if(event.target===this)fecharModal()">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="modal-maq-title">Máquina</span>
+      <button type="button" class="btn btn-sm" onclick="fecharModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="maq-id">
+      <div class="form-group">
+        <label class="form-label">Nome da Calandra</label>
+        <input type="text" id="maq-nome" class="form-control" placeholder="Ex: Calandra 2" onkeydown="if(event.key==='Enter')salvarMaquina()">
       </div>
-      <div class="modal-body">
-        <input type="hidden" id="maquina-modal-id">
-        <label class="form-label">Nome da Máquina</label>
-        <input type="text" class="form-control" id="maquina-modal-nome" placeholder="Ex: Calandra 2">
-      </div>
-      <div class="modal-footer justify-content-between">
-        <button type="button" class="btn btn-outline-danger d-none" id="btn-excluir-maquina" onclick="excluirMaquina()"><i class="fa-solid fa-trash-can me-2"></i>Excluir</button>
-        <button type="button" class="btn btn-primary ms-auto" onclick="salvarMaquina()">Salvar</button>
-      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="btn-del-maq" class="btn btn-danger hidden" onclick="excluirMaquina()">Excluir Máquina</button>
+      <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn btn-primary" onclick="salvarMaquina()">Salvar</button>
     </div>
   </div>
 </div>
 
-<div id="toast-container"></div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
 <script>
 const STORAGE_KEY = 'pcp-calandragem-app-v2';
 const WS_URL_KEY = 'pcp-notepad-config';
+const THEME_KEY = 'pcp-calandragem-theme';
 
 const PRIORIDADE_PESO = { alta: 0, media: 1, baixa: 2 };
 const PRIORIDADE_LABEL = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+const IMPRESSORAS_PADRAO = { T: { nome: 'TEX', metrosHora: 50 }, A: { nome: 'APS', metrosHora: 38 } };
 
-let appState = { maquinas: [], maquinaAtivaId: null };
+let appState = { maquinas: [], maquinaAtivaId: null, config: {} };
+let notepadSocket = null;
+let notepadReconnectTimer = null;
+let notepadUltimoTexto = null;
+let dragIndex = null;
+let filtroAtual = 'todos';
 
-const IMPRESSORAS_PADRAO = {
-  T: { nome: 'TEX', metrosHora: 50 },
-  A: { nome: 'APS', metrosHora: 38 }
-};
+// Verifica se está dentro de iframe
+const params = new URLSearchParams(window.location.search);
+if (params.get('embed') === '1') {
+  document.getElementById('top-header').classList.add('embed');
+}
 
+// Tema Claro / Escuro
+function applyTheme(dark) {
+  document.documentElement.classList.toggle('dark', Boolean(dark));
+  const btn = document.getElementById('btn-theme');
+  if (btn) btn.textContent = dark ? 'Modo Claro' : 'Modo Escuro';
+}
+function toggleTheme() {
+  const isDark = !document.documentElement.classList.contains('dark');
+  localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
+  applyTheme(isDark);
+}
+applyTheme(params.get('theme') === 'dark' || localStorage.getItem(THEME_KEY) === 'dark');
+window.addEventListener('message', e => {
+  if (e.data && e.data.type === 'pcp-theme') applyTheme(Boolean(e.data.dark));
+});
+
+// Helpers
+const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const pad = n => String(n).padStart(2, '0');
+const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const hhmmss = d => `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 const chaveTecido = nome => (nome || '').trim().replace(/\s+/g, ' ').toUpperCase();
 const estaImpresso = p => p.impresso !== false;
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s ?? '';
+  return d.innerHTML;
+}
+
+function formatarDuracaoMin(min) {
+  min = Math.max(0, Math.round(min));
+  const h = Math.floor(min / 60), m = min % 60;
+  return h > 0 ? `${h}h ${pad(m)}m` : `${m}min`;
+}
+
+function maquinaAtiva() {
+  return appState.maquinas.find(m => m.id === appState.maquinaAtivaId) || appState.maquinas[0];
+}
+
+function criarMaquina(nome) {
+  return {
+    id: uid(),
+    nome: nome || `Calandra ${appState.maquinas.length + 1}`,
+    velocidade: 2.0,
+    setupMin: 5,
+    horaInicio: '',
+    producoes: []
+  };
+}
 
 function impressoraDoRolo(p) {
   const letra = (p.lote || '').charAt(0).toUpperCase();
@@ -335,83 +767,74 @@ function minutosImpressao(p) {
   if (estaImpresso(p)) return 0;
   const imp = impressoraDoRolo(p);
   if (!imp || !(imp.metrosHora > 0)) return 0;
-  return (parseFloat(p.metros) || 0) / imp.metrosHora * 60;
+  return ((parseFloat(p.metros) || 0) / imp.metrosHora) * 60;
 }
-const modalEditar = new bootstrap.Modal(document.getElementById('modalEditar'));
-const modalMaquina = new bootstrap.Modal(document.getElementById('modalMaquina'));
 
-window.onload = () => {
-  carregar();
-  configurarDragAndDrop();
-  carregarUrlNotepad();
-  conectarNotepad();
-  setInterval(renderizar, 60000);
-};
-
-const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-const pad = n => String(n).padStart(2, '0');
-const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
-function formatarDuracaoMin(min) {
-  min = Math.max(0, Math.round(min));
-  const h = Math.floor(min / 60), m = min % 60;
-  return h > 0 ? `${h}h ${m}min` : `${m}min`;
-}
-function maquinaAtiva() {
-  return appState.maquinas.find(m => m.id === appState.maquinaAtivaId) || appState.maquinas[0];
-}
-function criarMaquina(nome) {
-  return { id: uid(), nome: nome || `Calandra ${appState.maquinas.length + 1}`,
-           velocidade: 2.0, setupMin: 5, horaInicio: hhmm(new Date()), producoes: [] };
+function salvar() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
 }
 
 function carregar() {
   try { appState = JSON.parse(localStorage.getItem(STORAGE_KEY)) || appState; } catch (e) {}
-  if (!appState.maquinas || appState.maquinas.length === 0) appState.maquinas = [criarMaquina('Calandra 1')];
+  if (!appState.maquinas || appState.maquinas.length === 0) {
+    appState.maquinas = [criarMaquina('Calandra 1')];
+  }
   appState.maquinas.forEach(m => {
     if (m.setupMin === undefined) m.setupMin = 5;
     if (m.velocidade === undefined) m.velocidade = 2.0;
+    m.producoes = m.producoes || [];
     m.producoes.forEach(p => { if (!p.prioridade) p.prioridade = 'media'; });
   });
-  if (!appState.maquinas.find(m => m.id === appState.maquinaAtivaId)) appState.maquinaAtivaId = appState.maquinas[0].id;
+  if (!appState.maquinas.find(m => m.id === appState.maquinaAtivaId)) {
+    appState.maquinaAtivaId = appState.maquinas[0].id;
+  }
   appState.config = appState.config || {};
   const salvas = appState.config.impressoras || {};
   appState.config.impressoras = {};
   Object.entries(IMPRESSORAS_PADRAO).forEach(([letra, padrao]) => {
     const s = salvas[letra] || {};
-    appState.config.impressoras[letra] = { nome: s.nome || padrao.nome, metrosHora: s.metrosHora > 0 ? s.metrosHora : padrao.metrosHora };
+    appState.config.impressoras[letra] = {
+      nome: s.nome || padrao.nome,
+      metrosHora: s.metrosHora > 0 ? s.metrosHora : padrao.metrosHora
+    };
   });
   appState.config.tecidos = appState.config.tecidos || {};
   carregarConfigNoFormulario();
   renderizar();
 }
 
-function renderizarConfig() {
-  const ativo = document.activeElement;
-  if (ativo && ativo.closest && ativo.closest('#cfg-impressoras, #cfg-tecidos')) return;
-  const imp = document.getElementById('cfg-impressoras');
-  imp.innerHTML = Object.entries(appState.config.impressoras).map(([letra, i]) => `
-    <div class="cfg-linha">
-      <span class="cfg-nome">${escapeHtml(i.nome)} <span class="text-muted fw-normal">(rolos ${letra})</span></span>
-      <input type="number" step="1" min="0" class="form-control form-control-sm" value="${i.metrosHora}"
-             onchange="setVelocidadeImpressora('${letra}', this.value)">
-    </div>`).join('');
-
-  const nomes = new Set(Object.keys(appState.config.tecidos));
-  appState.maquinas.forEach(m => m.producoes.forEach(p => (p.composicao || []).forEach(c => nomes.add(chaveTecido(c.nome)))));
-  const tec = document.getElementById('cfg-tecidos');
-  const lista = [...nomes].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  tec.innerHTML = lista.length ? lista.map(n => `
-    <div class="cfg-linha">
-      <span class="cfg-nome" title="${escapeHtml(n)}">${escapeHtml(n)}</span>
-      <input type="number" step="0.1" min="0" class="form-control form-control-sm" placeholder="${maquinaAtiva().velocidade}"
-             value="${appState.config.tecidos[n] ?? ''}" data-tecido="${escapeHtml(n)}" onchange="setVelocidadeTecido(this.dataset.tecido, this.value)">
-    </div>`).join('') : '<div class="small text-muted">Nenhum tecido ainda.</div>';
+function carregarConfigNoFormulario() {
+  const m = maquinaAtiva();
+  const v = document.getElementById('in-vel');
+  const s = document.getElementById('in-setup');
+  const i = document.getElementById('in-inicio');
+  if (v) v.value = m.velocidade;
+  if (s) s.value = m.setupMin;
+  if (i) i.value = m.horaInicio || '';
 }
 
-function setVelocidadeImpressora(letra, valor) {
-  appState.config.impressoras[letra].metrosHora = parseFloat(valor) || 0;
-  salvar(); renderizar();
+function atualizarConfigMaquina() {
+  const m = maquinaAtiva();
+  m.velocidade = parseFloat(document.getElementById('in-vel').value) || 2.0;
+  m.setupMin = parseFloat(document.getElementById('in-setup').value) || 0;
+  m.horaInicio = document.getElementById('in-inicio').value;
+  salvar();
+  renderizar();
+}
+
+function renderizarConfig() {
+  const tec = document.getElementById('cfg-tecidos');
+  if (!tec) return;
+  const nomes = new Set(Object.keys(appState.config.tecidos));
+  appState.maquinas.forEach(m => m.producoes.forEach(p => (p.composicao || []).forEach(c => nomes.add(chaveTecido(c.nome)))));
+  const lista = [...nomes].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  tec.innerHTML = lista.length ? lista.map(n => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+      <span class="mono" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(n)}">${escapeHtml(n)}</span>
+      <input type="number" step="0.1" min="0" class="form-control mono" style="width:70px;padding:3px 6px;font-size:11px;" placeholder="${maquinaAtiva().velocidade}"
+             value="${appState.config.tecidos[n] ?? ''}" data-tecido="${escapeHtml(n)}"
+             onchange="setVelocidadeTecido(this.dataset.tecido, this.value)">
+    </div>`).join('') : '<div class="mono" style="font-size:11px;color:var(--text-muted)">Nenhum tecido personalizado.</div>';
 }
 
 function setVelocidadeTecido(nome, valor) {
@@ -427,25 +850,26 @@ function adicionarTecido() {
   if (!nome) return;
   if (!(nome in appState.config.tecidos)) appState.config.tecidos[nome] = maquinaAtiva().velocidade;
   input.value = '';
-  salvar(); renderizar();
+  salvar(); renderizar(); renderizarConfig();
 }
-function salvar() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appState)); }
 
+// Abas de Máquinas
 function renderizarTabs() {
   const c = document.getElementById('machine-tabs');
   c.innerHTML = '';
   appState.maquinas.forEach(m => {
     const tab = document.createElement('div');
     tab.className = `machine-tab ${m.id === appState.maquinaAtivaId ? 'active' : ''}`;
-    tab.innerHTML = `<i class="fa-solid fa-industry"></i><span>${escapeHtml(m.nome)}</span>
-      <span class="machine-tab-count">${m.producoes.filter(p => !p.concluido).length}</span>
-      <i class="fa-solid fa-pen machine-tab-edit"></i>`;
-    tab.onclick = e => e.target.classList.contains('machine-tab-edit') ? abrirMaquina(m.id) : trocarMaquina(m.id);
+    const pend = m.producoes.filter(p => !p.concluido).length;
+    tab.innerHTML = `<span>${escapeHtml(m.nome)}</span><span class="tab-badge">${pend}</span>
+      <span style="opacity:0.6;font-size:11px;margin-left:2px;" title="Editar máquina" onclick="event.stopPropagation();abrirMaquina('${m.id}')">✎</span>`;
+    tab.onclick = () => trocarMaquina(m.id);
     c.appendChild(tab);
   });
   const add = document.createElement('button');
-  add.className = 'btn-add-machine';
-  add.innerHTML = '<i class="fa-solid fa-plus me-1"></i>Nova Máquina';
+  add.type = 'button';
+  add.className = 'btn btn-sm';
+  add.textContent = '+ Máquina';
   add.onclick = () => abrirMaquina(null);
   c.appendChild(add);
 }
@@ -456,38 +880,22 @@ function trocarMaquina(id) {
   salvar();
   carregarConfigNoFormulario();
   renderizar();
-  if (notepadUltimoTexto !== null) sincronizarComNotepad(notepadUltimoTexto);
-}
-
-function carregarConfigNoFormulario() {
-  const m = maquinaAtiva();
-  document.getElementById('input-velocidade').value = m.velocidade;
-  document.getElementById('input-setup-tempo').value = m.setupMin;
-  document.getElementById('input-hora-inicio').value = m.horaInicio;
-}
-
-function atualizarConfigMaquina() {
-  const m = maquinaAtiva();
-  m.velocidade = parseFloat(document.getElementById('input-velocidade').value) || 2.0;
-  m.setupMin = parseFloat(document.getElementById('input-setup-tempo').value) || 0;
-  m.horaInicio = document.getElementById('input-hora-inicio').value;
-  salvar();
-  renderizar();
 }
 
 function abrirMaquina(id) {
   const m = id ? appState.maquinas.find(x => x.id === id) : null;
-  document.getElementById('modalMaquinaTitulo').innerText = m ? 'Editar Máquina' : 'Nova Máquina';
-  document.getElementById('maquina-modal-id').value = m ? m.id : '';
-  document.getElementById('maquina-modal-nome').value = m ? m.nome : '';
-  document.getElementById('btn-excluir-maquina').classList.toggle('d-none', !m || appState.maquinas.length <= 1);
-  modalMaquina.show();
+  document.getElementById('modal-maq-title').textContent = m ? 'Editar Máquina' : 'Nova Máquina';
+  document.getElementById('maq-id').value = m ? m.id : '';
+  document.getElementById('maq-nome').value = m ? m.nome : '';
+  document.getElementById('btn-del-maq').classList.toggle('hidden', !m || appState.maquinas.length <= 1);
+  document.getElementById('modal-maq').classList.remove('hidden');
+  setTimeout(() => document.getElementById('maq-nome').focus(), 20);
 }
 
 function salvarMaquina() {
-  const id = document.getElementById('maquina-modal-id').value;
-  const nome = document.getElementById('maquina-modal-nome').value.trim();
-  if (!nome) return alert('Digite um nome para a máquina.');
+  const id = document.getElementById('maq-id').value;
+  const nome = document.getElementById('maq-nome').value.trim();
+  if (!nome) return;
   if (id) {
     appState.maquinas.find(m => m.id === id).nome = nome;
   } else {
@@ -495,121 +903,190 @@ function salvarMaquina() {
     appState.maquinas.push(nova);
     appState.maquinaAtivaId = nova.id;
   }
-  salvar(); carregarConfigNoFormulario(); renderizar(); modalMaquina.hide();
+  salvar(); carregarConfigNoFormulario(); renderizar(); fecharModal();
 }
 
 function excluirMaquina() {
-  const id = document.getElementById('maquina-modal-id').value;
+  const id = document.getElementById('maq-id').value;
   if (!id || appState.maquinas.length <= 1) return;
-  if (!confirm('Excluir esta máquina e toda a sua fila?')) return;
+  if (!confirm('Excluir esta máquina e toda sua fila?')) return;
   appState.maquinas = appState.maquinas.filter(m => m.id !== id);
   if (appState.maquinaAtivaId === id) appState.maquinaAtivaId = appState.maquinas[0].id;
-  salvar(); carregarConfigNoFormulario(); renderizar(); modalMaquina.hide();
+  salvar(); carregarConfigNoFormulario(); renderizar(); fecharModal();
 }
 
+function abrirSetup() {
+  carregarConfigNoFormulario();
+  renderizarConfig();
+  document.getElementById('modal-setup').classList.remove('hidden');
+}
+
+function fecharModal() {
+  document.getElementById('modal-edit').classList.add('hidden');
+  document.getElementById('modal-maq').classList.add('hidden');
+  document.getElementById('modal-setup').classList.add('hidden');
+}
+
+function setFiltro(f) {
+  filtroAtual = f;
+  document.querySelectorAll('.chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.filter === f);
+  });
+  renderizar();
+}
+
+// Renderização dos cards e cálculos da fila
 function renderizar() {
   const m = maquinaAtiva();
-  const lista = document.getElementById('lista-producoes');
-  lista.innerHTML = '';
-
+  const list = document.getElementById('queue-grid');
   const setupMin = m.setupMin || 0;
+  const busca = (document.getElementById('filtro-busca')?.value || '').toLowerCase().trim();
+
+  // Relógio
+  const clock = document.getElementById('clock-display');
+  if (clock) clock.textContent = hhmmss(new Date());
+
+  const temEmAndamento = m.producoes.some(p => !p.concluido && p.iniciadoEm);
   const relogio = new Date();
-  if (m.horaInicio) { const [h, mi] = m.horaInicio.split(':'); relogio.setHours(+h, +mi, 0); }
-
-  let metrosRestantes = 0, minutosRestantes = 0;
-
-  if (m.producoes.length === 0) {
-    lista.innerHTML = `<div class="col-12 text-center text-muted py-5">
-      <i class="fa-solid fa-inbox fa-2x mb-3 d-block"></i>Nenhuma produção na fila. Aguardando o Notepad…</div>`;
+  if (!temEmAndamento && m.horaInicio) {
+    const [h, mi] = m.horaInicio.split(':');
+    relogio.setHours(+h, +mi, 0, 0);
   }
+
+  let metrosPendentes = 0;
+  let minutosRestantes = 0;
+  let cntPend = 0, cntAnd = 0, cntConc = 0;
+
+  list.innerHTML = '';
 
   m.producoes.forEach((p, i) => {
     const metros = parseFloat(p.metros) || 0;
-    const status = p.concluido ? 'concluido' : (p.iniciadoEm ? 'andamento' : 'pendente');
-    const impressora = impressoraDoRolo(p);
     const impresso = estaImpresso(p);
-    const calMin = minutosCalandra(p, m);
-    let rodape;
+    const impressora = impressoraDoRolo(p);
+    const status = p.concluido ? 'concluido' : (p.iniciadoEm ? 'andamento' : 'pendente');
 
+    if (p.concluido) cntConc++;
+    else if (p.iniciadoEm) { cntAnd++; cntPend++; }
+    else cntPend++;
+
+    const calMin = minutosCalandra(p, m);
+    const impMin = minutosImpressao(p);
+    const durTotal = impMin + calMin;
+
+    let rodape = '';
     if (p.concluido) {
       const real = p.iniciadoEm && p.concluidoEm ? (new Date(p.concluidoEm) - new Date(p.iniciadoEm)) / 60000 : null;
-      rodape = `<span class="text-success"><i class="fa-solid fa-check-double me-1"></i>Finalizado</span>` +
-        (real !== null ? `<span>Real: ${formatarDuracaoMin(real)} <span class="text-muted">(est: ${formatarDuracaoMin(calMin)})</span></span>` : '');
+      rodape = `<span style="color:var(--success);font-weight:700;">✓ Concluído</span>` +
+        (real !== null ? `<span>Real: ${formatarDuracaoMin(real)}</span>` : '');
     } else {
-      metrosRestantes += metros;
-      if (minutosRestantes > 0) { relogio.setMinutes(relogio.getMinutes() + setupMin); minutosRestantes += setupMin; }
-      const impMin = minutosImpressao(p);
-      const dur = impMin + calMin;
-      relogio.setMinutes(relogio.getMinutes() + dur);
-      minutosRestantes += dur;
-      const detalhe = impMin > 0
-        ? `<span class="text-muted">imp ${formatarDuracaoMin(impMin)} + cal ${formatarDuracaoMin(calMin)}</span>`
-        : `<span class="text-muted">cal ${formatarDuracaoMin(calMin)}</span>`;
+      metrosPendentes += metros;
+      if (minutosRestantes > 0) {
+        relogio.setTime(relogio.getTime() + setupMin * 60000);
+        minutosRestantes += setupMin;
+      }
+      let restanteItem = durTotal;
+      let decorrido = 0;
+      if (p.iniciadoEm) {
+        decorrido = Math.max(0, (Date.now() - new Date(p.iniciadoEm).getTime()) / 60000);
+        restanteItem = Math.max(0, durTotal - decorrido);
+      }
+      relogio.setTime(relogio.getTime() + restanteItem * 60000);
+      minutosRestantes += restanteItem;
+
+      const durText = impMin > 0 ? `imp ${formatarDuracaoMin(impMin)} + cal ${formatarDuracaoMin(calMin)}` : `cal ${formatarDuracaoMin(calMin)}`;
       rodape = p.iniciadoEm
-        ? `<span style="color:var(--running)"><i class="fa-solid fa-gear fa-spin me-1"></i>Em produção há ${formatarDuracaoMin((Date.now() - new Date(p.iniciadoEm)) / 60000)}</span>${detalhe}`
-        : `<span><i class="fa-regular fa-clock me-1"></i>Termina às ${hhmm(relogio)}</span>${detalhe}`;
+        ? `<span class="running-label">● Rodando (${formatarDuracaoMin(decorrido)})</span><span>${durText}</span>`
+        : `<span>Término: <strong>${hhmm(relogio)}</strong></span><span>${durText}</span>`;
     }
 
-    const col = document.createElement('div');
-    col.className = 'col-md-6 col-xl-4';
-    col.innerHTML = `
-      <div class="card card-producao h-100 pt-4 ${p.concluido ? 'card-concluido' : ''}" draggable="${!p.concluido}"
-           data-index="${i}" data-prioridade="${p.prioridade}" data-status="${status}">
-        <span class="ordem-badge">${i + 1}º</span>
-        <span class="drag-handle"><i class="fa-solid fa-grip-vertical"></i></span>
-        <div class="card-body d-flex flex-column pb-2">
-          <h5 class="card-title text-truncate fw-bold mb-1">${escapeHtml(p.nome)}</h5>
-          <div class="mb-2 d-flex gap-2 flex-wrap">
-            <span class="badge badge-prioridade ${p.prioridade}"><i class="fa-solid fa-flag me-1"></i>${PRIORIDADE_LABEL[p.prioridade]}</span>
-            ${impressora ? `<span class="badge badge-impressora"><i class="fa-solid fa-print me-1"></i>${escapeHtml(impressora.nome)}</span>` : ''}
-            ${!impresso && !p.concluido ? `<span class="badge badge-nao-impresso"><i class="fa-solid fa-hourglass-half me-1"></i>Não impresso</span>` : ''}
-            ${status === 'andamento' ? `<span class="badge badge-andamento"><span class="dot-pulse"></span>Em produção</span>` : ''}
-          </div>
-          <div class="mb-2">
-            <span class="badge ${p.concluido ? 'bg-secondary' : 'bg-light text-primary'} border px-2 py-1 fs-6 w-100 text-start" style="font-family:var(--font-mono)">
-              <i class="fa-solid fa-ruler-combined me-2"></i>${metros.toFixed(2)} m
-            </span>
-          </div>
-          ${p.desc ? `<p class="card-text text-muted small mb-2">${escapeHtml(p.desc)}</p>` : ''}
-          <div class="mt-auto d-flex gap-2 pt-2 border-top">
-            <button class="btn btn-sm ${impresso ? 'btn-primary' : 'btn-outline-warning'} btn-icon" onclick="toggleImpresso(${i})"
-                    title="${impresso ? 'Impresso (clique para marcar como não impresso)' : 'Não impresso (clique para marcar como impresso)'}" ${p.concluido ? 'disabled' : ''}>
-              <i class="fa-solid fa-print"></i></button>
-            <button class="btn btn-sm ${p.iniciadoEm ? 'btn-info text-white' : 'btn-outline-info'} btn-icon" onclick="toggleIniciar(${i})" title="Iniciar / pausar" ${p.concluido ? 'disabled' : ''}>
-              <i class="fa-solid ${p.iniciadoEm ? 'fa-pause' : 'fa-play'}"></i></button>
-            <button class="btn btn-sm ${p.concluido ? 'btn-success' : 'btn-outline-success'} btn-icon flex-grow-1" onclick="toggleConcluido(${i})" title="Concluir">
-              <i class="fa-solid fa-check"></i></button>
-            <button class="btn btn-sm btn-outline-primary btn-icon" onclick="abrirEditar(${i})" title="Editar" ${p.concluido ? 'disabled' : ''}><i class="fa-solid fa-pen"></i></button>
-            <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="mover(${i}, -1)" ${i === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
-            <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="mover(${i}, 1)" ${i === m.producoes.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
-            <button class="btn btn-sm btn-outline-danger btn-icon" onclick="remover(${i})" title="Excluir"><i class="fa-solid fa-trash"></i></button>
-          </div>
+    // Filtros de exibição
+    if (filtroAtual === 'pendentes' && p.concluido) return;
+    if (filtroAtual === 'andamento' && (!p.iniciadoEm || p.concluido)) return;
+    if (filtroAtual === 'concluidos' && !p.concluido) return;
+
+    if (busca) {
+      const haystack = `${p.nome} ${p.desc || ''} ${p.lote || ''}`.toLowerCase();
+      if (!haystack.includes(busca)) return;
+    }
+
+    const card = document.createElement('div');
+    card.className = `queue-card ${p.concluido ? 'done' : ''}`;
+    card.draggable = !p.concluido;
+    card.dataset.index = i;
+    card.dataset.prio = p.prioridade;
+    card.dataset.status = status;
+
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="card-order">#${i + 1}</span>
+        <span class="card-title" title="${escapeHtml(p.nome)}">${escapeHtml(p.nome)}</span>
+        <span class="card-meters">${metros.toFixed(2).replace('.', ',')} m</span>
+      </div>
+      <div class="card-mid">
+        <div class="badge-row">
+          <span class="badge badge-${p.prioridade}">${PRIORIDADE_LABEL[p.prioridade]}</span>
+          ${impressora ? `<span class="badge badge-imp">${escapeHtml(impressora.nome)}</span>` : ''}
+          ${!impresso && !p.concluido ? `<span class="badge badge-noimp">Não Impresso</span>` : ''}
+          ${status === 'andamento' ? `<span class="badge badge-running"><span class="dot-pulse"></span>Em Produção</span>` : ''}
         </div>
-        <div class="card-footer-tempo">${rodape}</div>
-      </div>`;
-    lista.appendChild(col);
+        ${p.desc ? `<div class="card-desc">${escapeHtml(p.desc)}</div>` : ''}
+        <div class="card-actions">
+          <button type="button" class="btn btn-sm ${impresso ? '' : 'btn-primary'}" onclick="toggleImpresso(${i})" ${p.concluido ? 'disabled' : ''} title="${impresso ? 'Marcar Não Impresso' : 'Marcar Impresso'}">
+            🖨️ ${impresso ? 'Impresso' : 'Não Impresso'}
+          </button>
+          <button type="button" class="btn btn-sm ${p.iniciadoEm ? 'btn-primary' : ''}" onclick="toggleIniciar(${i})" ${p.concluido ? 'disabled' : ''}>
+            ${p.iniciadoEm ? '⏸ Pausar' : '▶ Iniciar'}
+          </button>
+          <button type="button" class="btn btn-sm ${p.concluido ? 'btn-success' : ''}" onclick="toggleConcluido(${i})">
+            ✓ ${p.concluido ? 'Feito' : 'Concluir'}
+          </button>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-icon btn-sm" onclick="abrirEditar(${i})" ${p.concluido ? 'disabled' : ''} title="Editar">✎</button>
+          <button type="button" class="btn btn-icon btn-sm" onclick="mover(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="Subir">↑</button>
+          <button type="button" class="btn btn-icon btn-sm" onclick="mover(${i}, 1)" ${i === m.producoes.length - 1 ? 'disabled' : ''} title="Descer">↓</button>
+          <button type="button" class="btn btn-icon btn-sm btn-danger" onclick="remover(${i})" title="Remover">✕</button>
+        </div>
+      </div>
+      <div class="card-foot">${rodape}</div>
+    `;
+    list.appendChild(card);
   });
 
-  document.getElementById('resumo-metros').innerText = `${metrosRestantes.toFixed(2).replace('.', ',')} m`;
-  document.getElementById('resumo-tempo').innerText = `${Math.floor(minutosRestantes / 60)}h ${Math.round(minutosRestantes % 60)}m`;
-  document.getElementById('resumo-fim').innerText = metrosRestantes > 0 ? hhmm(relogio) : '--:--';
+  if (list.children.length === 0) {
+    list.innerHTML = `<div class="empty-state">
+      FILA VAZIA // ADICIONE UM ROLO ACIMA OU AGUARDANDO SINCRONIZAÇÃO DO NOTEPAD
+    </div>`;
+  }
+
+  // Atualiza KPIs
+  document.getElementById('kpi-metros').textContent = `${metrosPendentes.toFixed(2).replace('.', ',')} m`;
+  document.getElementById('kpi-tempo').textContent = formatarDuracaoMin(minutosRestantes);
+  document.getElementById('kpi-fim').textContent = metrosPendentes > 0 ? hhmm(relogio) : '--:--';
+  document.getElementById('kpi-rolos').textContent = `${cntPend} pend / ${cntConc} conc`;
+
+  // Contadores dos chips
+  document.getElementById('cnt-todos').textContent = m.producoes.length;
+  document.getElementById('cnt-pend').textContent = cntPend;
+  document.getElementById('cnt-and').textContent = cntAnd;
+  document.getElementById('cnt-conc').textContent = cntConc;
+
   renderizarTabs();
-  renderizarConfig();
 }
 
-document.getElementById('form-producao').addEventListener('submit', e => {
+// Formulário Adicionar
+document.getElementById('form-add').addEventListener('submit', e => {
   e.preventDefault();
   maquinaAtiva().producoes.push({
-    nome: document.getElementById('input-nome').value.trim(),
-    metros: document.getElementById('input-metros').value.trim(),
-    desc: document.getElementById('input-desc').value.trim(),
-    prioridade: document.getElementById('input-prioridade').value,
+    nome: document.getElementById('add-nome').value.trim(),
+    metros: document.getElementById('add-metros').value.trim(),
+    desc: document.getElementById('add-desc').value.trim(),
+    prioridade: document.getElementById('add-prio').value,
     concluido: false
   });
   e.target.reset();
-  document.getElementById('input-prioridade').value = 'media';
+  document.getElementById('add-prio').value = 'media';
   salvar(); renderizar();
-  document.getElementById('input-nome').focus();
+  document.getElementById('add-nome').focus();
 });
 
 function toggleIniciar(i) {
@@ -618,13 +1095,11 @@ function toggleIniciar(i) {
   p.iniciadoEm = p.iniciadoEm ? null : new Date().toISOString();
   salvar(); renderizar();
 }
-
 function toggleImpresso(i) {
   const p = maquinaAtiva().producoes[i];
   p.impresso = !estaImpresso(p);
   salvar(); renderizar();
 }
-
 function toggleConcluido(i) {
   const p = maquinaAtiva().producoes[i];
   p.concluido = !p.concluido;
@@ -634,21 +1109,46 @@ function toggleConcluido(i) {
 
 function abrirEditar(i) {
   const p = maquinaAtiva().producoes[i];
-  document.getElementById('edit-index').value = i;
+  document.getElementById('edit-idx').value = i;
   document.getElementById('edit-nome').value = p.nome;
   document.getElementById('edit-metros').value = p.metros;
-  document.getElementById('edit-prioridade').value = p.prioridade;
+  document.getElementById('edit-prio').value = p.prioridade;
   document.getElementById('edit-desc').value = p.desc || '';
-  modalEditar.show();
+
+  const moveBox = document.getElementById('edit-move-box');
+  const sel = document.getElementById('edit-maquina');
+  if (appState.maquinas.length > 1) {
+    moveBox.classList.remove('hidden');
+    sel.innerHTML = appState.maquinas.map(m =>
+      `<option value="${m.id}" ${m.id === appState.maquinaAtivaId ? 'selected' : ''}>${escapeHtml(m.nome)}</option>`
+    ).join('');
+  } else {
+    moveBox.classList.add('hidden');
+  }
+  document.getElementById('modal-edit').classList.remove('hidden');
 }
 
 function salvarEdicao() {
-  const p = maquinaAtiva().producoes[document.getElementById('edit-index').value];
-  p.nome = document.getElementById('edit-nome').value;
+  const idx = +document.getElementById('edit-idx').value;
+  const orig = maquinaAtiva();
+  const p = orig.producoes[idx];
+  if (!p) return;
+  p.nome = document.getElementById('edit-nome').value.trim() || p.nome;
   p.metros = document.getElementById('edit-metros').value;
-  p.prioridade = document.getElementById('edit-prioridade').value;
-  p.desc = document.getElementById('edit-desc').value;
-  salvar(); renderizar(); modalEditar.hide();
+  p.prioridade = document.getElementById('edit-prio').value;
+  p.desc = document.getElementById('edit-desc').value.trim();
+
+  if (appState.maquinas.length > 1) {
+    const destId = document.getElementById('edit-maquina').value;
+    if (destId && destId !== orig.id) {
+      const dest = appState.maquinas.find(m => m.id === destId);
+      if (dest) {
+        orig.producoes.splice(idx, 1);
+        dest.producoes.push(p);
+      }
+    }
+  }
+  salvar(); renderizar(); fecharModal();
 }
 
 function mover(i, dir) {
@@ -673,78 +1173,67 @@ function ordenarPorPrioridade() {
 
 function limparFila() {
   const m = maquinaAtiva();
-  if (m.producoes.length && confirm(`Apagar toda a fila de "${m.nome}", incluindo os finalizados?`)) {
+  if (m.producoes.length && confirm(`Limpar toda a fila de "${m.nome}"?`)) {
     m.producoes = [];
     salvar(); renderizar();
   }
 }
 
-let dragIndex = null;
+// Drag & Drop
 function configurarDragAndDrop() {
-  const lista = document.getElementById('lista-producoes');
-  const limpar = () => lista.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
-
-  lista.addEventListener('dragstart', e => {
-    const card = e.target.closest('.card-producao');
+  const list = document.getElementById('queue-grid');
+  list.addEventListener('dragstart', e => {
+    const card = e.target.closest('.queue-card');
     if (!card || card.getAttribute('draggable') !== 'true') return;
     dragIndex = +card.dataset.index;
     card.classList.add('dragging');
   });
-  lista.addEventListener('dragend', e => {
-    e.target.closest('.card-producao')?.classList.remove('dragging');
-    limpar(); dragIndex = null;
+  list.addEventListener('dragend', e => {
+    e.target.closest('.queue-card')?.classList.remove('dragging');
+    list.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+    dragIndex = null;
   });
-  lista.addEventListener('dragover', e => {
-    const card = e.target.closest('.card-producao');
-    if (!card || dragIndex === null) return;
-    e.preventDefault(); limpar();
-    if (+card.dataset.index !== dragIndex) card.classList.add('drag-over');
-  });
-  lista.addEventListener('drop', e => {
-    const card = e.target.closest('.card-producao');
+  list.addEventListener('dragover', e => {
+    const card = e.target.closest('.queue-card');
     if (!card || dragIndex === null) return;
     e.preventDefault();
-    const destino = +card.dataset.index;
-    if (destino === dragIndex) return;
+    list.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
+    if (+card.dataset.index !== dragIndex) card.classList.add('drag-over');
+  });
+  list.addEventListener('drop', e => {
+    const card = e.target.closest('.queue-card');
+    if (!card || dragIndex === null) return;
+    e.preventDefault();
+    const dest = +card.dataset.index;
+    if (dest === dragIndex) return;
     const fila = maquinaAtiva().producoes;
     const [item] = fila.splice(dragIndex, 1);
-    fila.splice(destino, 0, item);
+    fila.splice(dest, 0, item);
     salvar(); renderizar();
   });
 }
 
-let notepadSocket = null;
-let notepadReconnectTimer = null;
-let notepadUltimoTexto = null;
-
-function carregarUrlNotepad() {
+// WebSocket do Notepad
+function conectarNotepad() {
   let url = `ws://${window.location.hostname || 'localhost'}:__WS_PORT__`;
   try { url = JSON.parse(localStorage.getItem(WS_URL_KEY))?.url || url; } catch (e) {}
-  document.getElementById('notepad-ws-url').value = url;
-}
 
-function setNotepadStatus(texto, classe, icone) {
-  const el = document.getElementById('notepad-status');
-  el.className = `badge rounded-pill ${classe}`;
-  el.innerHTML = `<i class="fa-solid ${icone} me-1"></i>${texto}`;
-}
+  const st = document.getElementById('ws-status');
+  const txt = document.getElementById('ws-text');
+  if (txt) txt.textContent = 'Notepad: conectando...';
+  if (st) st.className = 'ws-status';
 
-function conectarNotepad() {
-  const url = document.getElementById('notepad-ws-url').value.trim();
-  if (!url) return alert('Informe o endereço do WebSocket (ex: ws://192.168.0.10:8765).');
-  localStorage.setItem(WS_URL_KEY, JSON.stringify({ url }));
   if (notepadSocket) { notepadSocket.onclose = null; try { notepadSocket.close(); } catch (e) {} }
   clearTimeout(notepadReconnectTimer);
-  abrirConexao(url);
-}
 
-function abrirConexao(url) {
-  setNotepadStatus('Conectando...', 'bg-secondary', 'fa-circle-notch fa-spin');
-  try { notepadSocket = new WebSocket(url); }
-  catch (e) { return setNotepadStatus('URL inválida', 'bg-danger', 'fa-triangle-exclamation'); }
+  try { notepadSocket = new WebSocket(url); } catch (e) {
+    if (txt) txt.textContent = 'Notepad: URL inválida';
+    return;
+  }
 
   notepadSocket.onopen = () => {
-    setNotepadStatus('Notepad: conectado', 'bg-success', 'fa-circle-check');
+    if (txt) txt.textContent = 'Notepad: conectado';
+    if (st) st.className = 'ws-status connected';
     notepadSocket.send(JSON.stringify({ type: 'get_state' }));
   };
   notepadSocket.onmessage = ev => {
@@ -757,15 +1246,32 @@ function abrirConexao(url) {
     } catch (e) {}
   };
   notepadSocket.onclose = () => {
-    setNotepadStatus('Notepad: reconectando...', 'bg-warning text-dark', 'fa-rotate');
-    notepadReconnectTimer = setTimeout(() => abrirConexao(url), 2000);
+    if (txt) txt.textContent = 'Notepad: reconectando...';
+    if (st) st.className = 'ws-status';
+    notepadReconnectTimer = setTimeout(conectarNotepad, 2500);
   };
-  notepadSocket.onerror = () => setNotepadStatus('Notepad: erro de conexão', 'bg-danger', 'fa-triangle-exclamation');
+}
+
+function normalizarPrioridade(str) {
+  if (!str) return null;
+  const s = str.trim().toLowerCase().replace(/^[-–—\s]+/, '');
+  if (s === 'pa' || s === 'alta') return 'alta';
+  if (s === 'pm' || s === 'media' || s === 'média') return 'media';
+  if (s === 'pb' || s === 'baixa') return 'baixa';
+  return null;
+}
+
+function resolverPrioridade(lista, padrao = 'media') {
+  const prios = lista.filter(Boolean);
+  if (prios.includes('alta')) return 'alta';
+  if (prios.includes('media')) return 'media';
+  if (prios.includes('baixa')) return 'baixa';
+  return padrao;
 }
 
 function parseNotepadText(texto) {
-  const marcadorRegex = /\b([A-Za-z])(\d{1,3})\b/g;
-  const itemRegex = /([A-Za-zÀ-ÖØ-öø-ÿ](?:[A-Za-zÀ-ÖØ-öø-ÿ ]*[A-Za-zÀ-ÖØ-öø-ÿ])?)\s*-\s*(\d+(?:,\d+)?)\s*m\b/g;
+  const marcadorRegex = /\b([A-Za-z])(\d{1,3})(?:\s*[-–—]?\s*(p[abmABM]|alta|media|média|baixa)\b)?/gi;
+  const itemRegex = /([A-Za-zÀ-ÖØ-öø-ÿ0-9](?:[A-Za-zÀ-ÖØ-öø-ÿ0-9 \/._-]*[A-Za-zÀ-ÖØ-öø-ÿ0-9])?)\s*-\s*(\d+(?:[.,]\d+)?)\s*m\b(?:\s*[-–—]?\s*(p[abmABM]|alta|media|média|baixa)\b)?/gi;
 
   const extrairItens = trecho => {
     const itens = [];
@@ -774,7 +1280,15 @@ function parseNotepadText(texto) {
     while ((im = itemRegex.exec(trecho)) !== null) {
       const nome = im[1].trim().replace(/\s+/g, ' ');
       const metros = parseFloat(im[2].replace(',', '.'));
-      if (nome && !isNaN(metros)) itens.push({ nome, metros });
+      const prio = normalizarPrioridade(im[3]);
+      if (nome && !isNaN(metros)) {
+        itens.push({
+          nome,
+          metros,
+          prioRaw: im[3] ? im[3].trim().toUpperCase().replace(/^[-–—\s]+/, '') : null,
+          prioridade: prio
+        });
+      }
     }
     return itens;
   };
@@ -782,11 +1296,19 @@ function parseNotepadText(texto) {
   const marcadores = [];
   let mm;
   while ((mm = marcadorRegex.exec(texto)) !== null) {
-    marcadores.push({ lote: mm[1].toUpperCase() + mm[2], index: mm.index, fim: mm.index + mm[0].length });
+    const lote = mm[1].toUpperCase() + mm[2];
+    const prioLote = normalizarPrioridade(mm[3]);
+    marcadores.push({ lote, prioLote, index: mm.index, fim: mm.index + mm[0].length });
   }
 
   if (marcadores.length === 0) {
-    return extrairItens(texto).map(c => ({ lote: '', nome: c.nome, metros: c.metros, composicao: [c] }));
+    return extrairItens(texto).map(c => ({
+      lote: '',
+      nome: c.nome,
+      metros: c.metros,
+      prioridade: c.prioridade || 'media',
+      composicao: [c]
+    }));
   }
 
   const rolos = [];
@@ -795,52 +1317,96 @@ function parseNotepadText(texto) {
     const composicao = extrairItens(texto.slice(mk.fim, fim));
     if (composicao.length) {
       const metros = Math.round(composicao.reduce((s, c) => s + c.metros, 0) * 100) / 100;
-      rolos.push({ lote: mk.lote, nome: `Rolo ${mk.lote}`, metros, composicao });
+      const prioridade = resolverPrioridade(
+        [mk.prioLote, ...composicao.map(c => c.prioridade)],
+        'media'
+      );
+      rolos.push({
+        lote: mk.lote,
+        nome: `Rolo ${mk.lote}`,
+        metros,
+        prioridade,
+        composicao
+      });
     }
   });
   return rolos;
 }
 
-const formatarComposicao = comp => comp.map(c => `${c.nome} ${String(c.metros).replace('.', ',')}m`).join(' + ');
+const formatarComposicao = comp => comp.map(c => `${c.nome} ${String(c.metros).replace('.', ',')}m${c.prioRaw ? ' [' + c.prioRaw + ']' : ''}`).join(' + ');
 
 function sincronizarComNotepad(texto) {
   const maquina = maquinaAtiva();
   if (!maquina) return;
   const rolos = parseNotepadText(texto || '').map(r => ({ ...r, _usado: false }));
-  const filaFinal = [];
+  let mudou = false;
 
-  maquina.producoes.forEach(p => {
-    if (!p.lote) return filaFinal.push(p);
-    const r = rolos.find(r => !r._usado && r.lote === p.lote);
-    if (r) {
-      r._usado = true;
-      filaFinal.push({ ...p, metros: r.metros, desc: formatarComposicao(r.composicao), composicao: r.composicao });
-    } else if (p.concluido) {
-      filaFinal.push(p);
+  appState.maquinas.forEach(m => {
+    const novaFila = [];
+    m.producoes.forEach(p => {
+      if (!p.lote) return novaFila.push(p);
+      const r = rolos.find(x => !x._usado && x.lote === p.lote);
+      if (r) {
+        r._usado = true;
+        const novaDesc = formatarComposicao(r.composicao);
+        const novaPrio = r.prioridade || p.prioridade || 'media';
+        if (p.metros !== r.metros || p.desc !== novaDesc || p.prioridade !== novaPrio) {
+          mudou = true;
+        }
+        novaFila.push({
+          ...p,
+          metros: r.metros,
+          desc: novaDesc,
+          composicao: r.composicao,
+          prioridade: novaPrio
+        });
+      } else if (p.concluido) {
+        novaFila.push(p);
+      }
+    });
+    if (JSON.stringify(novaFila) !== JSON.stringify(m.producoes)) {
+      m.producoes = novaFila;
+      mudou = true;
     }
   });
 
-  rolos.filter(r => !r._usado).forEach(r => filaFinal.push({
-    nome: r.nome, metros: r.metros, lote: r.lote,
-    desc: formatarComposicao(r.composicao), composicao: r.composicao,
-    prioridade: 'media', concluido: false
-  }));
-
-  if (JSON.stringify(filaFinal) !== JSON.stringify(maquina.producoes)) {
-    maquina.producoes = filaFinal;
-    salvar(); renderizar();
-    mostrarToast('Fila atualizada pelo Notepad!');
+  const novos = rolos.filter(r => !r._usado);
+  if (novos.length) {
+    novos.forEach(r => maquina.producoes.push({
+      nome: r.nome,
+      metros: r.metros,
+      lote: r.lote,
+      desc: formatarComposicao(r.composicao),
+      composicao: r.composicao,
+      prioridade: r.prioridade || 'media',
+      concluido: false
+    }));
+    mudou = true;
   }
-  document.getElementById('notepad-last-sync').innerText = `Última sincronização: ${new Date().toLocaleTimeString('pt-BR')}`;
+
+  if (mudou) {
+    salvar();
+    renderizar();
+  }
 }
 
-function mostrarToast(msg) {
-  const t = document.createElement('div');
-  t.className = 'toast align-items-center text-white bg-success border-0 show mb-2 shadow';
-  t.innerHTML = `<div class="toast-body fw-medium">${msg}</div>`;
-  document.getElementById('toast-container').appendChild(t);
-  setTimeout(() => t.remove(), 3000);
-}
+// Atalho de teclado 'N' para novo rolo e 'Esc' para fechar modais
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') fecharModal();
+  if (e.key === 'n' || e.key === 'N') {
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+    e.preventDefault();
+    document.getElementById('add-nome')?.focus();
+  }
+});
+
+window.onload = () => {
+  carregar();
+  configurarDragAndDrop();
+  conectarNotepad();
+  setInterval(renderizar, 1000);
+};
 </script>
 </body>
 </html>

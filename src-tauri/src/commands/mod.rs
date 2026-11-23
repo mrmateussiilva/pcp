@@ -2,6 +2,7 @@ pub mod bolsinhas;
 pub mod calandragem;
 pub mod consumo;
 pub mod cortador;
+pub mod explorer;
 pub mod notepad;
 pub mod pastas;
 pub mod shopee;

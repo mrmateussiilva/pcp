@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Ícone-fonte do PCP Central. Regenere todos os tamanhos com:
+     npm run icons   (equivale a: npx tauri icon src-tauri/icons/app-icon.svg) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Placa base (slate-900) com moldura técnica -->
+  <rect x="48" y="48" width="928" height="928" rx="168" fill="#0f172a"/>
+  <rect x="48" y="48" width="928" height="928" rx="168" fill="none" stroke="#334155" stroke-width="20"/>
+
+  <!-- Marcas de corte (crop marks) -->
+  <g stroke="#64748b" stroke-width="28" stroke-linecap="square" fill="none">
+    <path d="M200 300 V200 H300"/>
+    <path d="M724 200 H824 V300"/>
+    <path d="M824 724 V824 H724"/>
+    <path d="M300 824 H200 V724"/>
+  </g>
+
+  <!-- Marca de registro de impressão -->
+  <g stroke="#f8fafc" fill="none" stroke-linecap="butt">
+    <circle cx="512" cy="512" r="196" stroke-width="44"/>
+    <path d="M512 252 V772 M252 512 H772" stroke-width="32"/>
+  </g>
+
+  <!-- Núcleo de status (âmbar) -->
+  <circle cx="512" cy="512" r="84" fill="#f59e0b"/>
+  <path d="M512 448 V576 M448 512 H576" stroke="#0f172a" stroke-width="20"/>
+</svg>
+

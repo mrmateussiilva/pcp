@@ -1,5 +1,5 @@
 use crate::core::config::{AppConfig, ConfigManager};
-use crate::core::pastas::{self, CriarResultado, PastaStatus};
+use crate::core::pastas::{self, BaseDriveStatus, CriarResultado, PastaStatus, PastasDiaResumo};
 use chrono::NaiveDate;
 use serde::Deserialize;
 use tauri::State;
@@ -52,6 +52,18 @@ pub fn save_pastas_config(
 }
 
 #[tauri::command]
+pub async fn pastas_obter_resumo(
+    state: State<'_, ConfigManager>,
+    data_iso: Option<String>,
+) -> Result<PastasDiaResumo, String> {
+    let dia = parse_data(data_iso)?;
+    let cfg = state.get();
+    tokio::task::spawn_blocking(move || pastas::obter_resumo(&cfg, dia))
+        .await
+        .map_err(|e| format!("Erro interno: {e}"))
+}
+
+#[tauri::command]
 pub fn listar_pastas_dia(
     state: State<'_, ConfigManager>,
     data_iso: Option<String>,
@@ -71,4 +83,25 @@ pub async fn criar_pastas_dia(
     tokio::task::spawn_blocking(move || pastas::criar(&cfg, dia))
         .await
         .map_err(|e| format!("Erro interno: {e}"))?
+}
+
+#[tauri::command]
+pub async fn criar_pasta_individual(caminho: String) -> Result<(), String> {
+    tokio::task::spawn_blocking(move || pastas::criar_pasta_individual(&caminho))
+        .await
+        .map_err(|e| format!("Erro interno: {e}"))?
+}
+
+#[tauri::command]
+pub async fn verificar_base_drive(
+    state: State<'_, ConfigManager>,
+    caminho_custom: Option<String>,
+) -> Result<BaseDriveStatus, String> {
+    let base = match caminho_custom {
+        Some(c) if !c.trim().is_empty() => c.trim().to_string(),
+        _ => state.get().base,
+    };
+    tokio::task::spawn_blocking(move || pastas::verificar_base(&base))
+        .await
+        .map_err(|e| format!("Erro interno: {e}"))
 }

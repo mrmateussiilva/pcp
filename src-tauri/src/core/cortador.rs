@@ -1,10 +1,10 @@
 use crate::core::imaging::{
     blit_rgb_subrect_fast, draw_text_rgb, draw_text_with_stroke_rgb, load_image_with_meta,
-    load_system_font_bytes, measure_text_px, parse_hex_color, paste_rgba_onto_rgb,
-    resize_rgba_simd, save_image_with_meta, save_rgb_tiff,
+    load_system_font_bytes, measure_text_px, parse_hex_color, paste_rgba_onto_rgb, px_to_cm,
+    read_image_dimensions_and_dpi, resize_rgba_simd, rotate270_rgb_fast, rotate90_rgb_fast,
+    save_image_with_meta, save_rgb_tiff,
 };
-use image::imageops;
-use image::{DynamicImage, Rgb, RgbImage, RgbaImage};
+use image::{imageops, DynamicImage, Rgb, RgbImage, RgbaImage};
 use rayon::prelude::*;
 use rayon::ThreadPoolBuilder;
 use regex::Regex;
@@ -13,9 +13,22 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use tauri::{AppHandle, Emitter};
+
+static RE_PLATE: OnceLock<Regex> = OnceLock::new();
+static RE_CITY: OnceLock<Regex> = OnceLock::new();
+
+fn get_re_plate() -> &'static Regex {
+    RE_PLATE.get_or_init(|| Regex::new(r"(?i) - P\d+$").unwrap())
+}
+
+fn get_re_city() -> &'static Regex {
+    RE_CITY.get_or_init(|| {
+        Regex::new(r"(?i)^\s*(?P<city>.+?)\s*\(\s*L\s*\d+(?:[.,]\d+)?\s*[X×]\s*A\s*\d+(?:[.,]\d+)?\s*\)\s*$").unwrap()
+    })
+}
 
 const DEFAULT_COLOR_PALETTE: &[(&str, &str)] = &[
     ("preto", "#000000"),
@@ -76,6 +89,8 @@ pub struct CortadorMedidasPayload {
     pub tipo: String,
     pub cor: String,
     pub inverter: bool,
+    #[serde(default)]
+    pub mover: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -84,19 +99,53 @@ pub struct CortadorProgress {
     pub total: usize,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct CortadorDoneSummary {
+    pub ok: usize,
+    pub err: usize,
+    pub cancelled: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CortadorSimItem {
+    pub arquivo: String,
+    pub largura_cm: f64,
+    pub altura_cm: f64,
+    pub dpi: f64,
+    pub n_placas: usize,
+    pub placas_cm: Vec<f64>,
+    pub cidade: Option<String>,
+    pub erro: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CortadorSimulacao {
+    pub total_paineis: usize,
+    pub total_placas: usize,
+    pub itens: Vec<CortadorSimItem>,
+}
+
 pub struct CortadorService {
     rodando: Arc<AtomicBool>,
+    cancel_flag: Arc<AtomicBool>,
 }
 
 impl CortadorService {
     pub fn new() -> Self {
         Self {
             rodando: Arc::new(AtomicBool::new(false)),
+            cancel_flag: Arc::new(AtomicBool::new(false)),
         }
     }
 
     pub fn rodando(&self) -> bool {
         self.rodando.load(Ordering::Relaxed)
+    }
+
+    pub fn cancelar(&self) {
+        if self.rodando.load(Ordering::Relaxed) {
+            self.cancel_flag.store(true, Ordering::Relaxed);
+        }
     }
 
     pub fn executar_auto(
@@ -107,13 +156,23 @@ impl CortadorService {
         if self.rodando.swap(true, Ordering::Relaxed) {
             return Err("Já existe um corte em andamento.".to_string());
         }
+        self.cancel_flag.store(false, Ordering::Relaxed);
         let rodando_ref = self.rodando.clone();
+        let cancel_ref = self.cancel_flag.clone();
         let _ = app.emit("cortador-status", true);
 
         thread::spawn(move || {
-            let res = run_auto(&app, &payload);
+            let res = run_auto(&app, &payload, &cancel_ref);
             if let Err(e) = res {
                 let _ = app.emit("cortador-log", format!("❌ Erro: {e}"));
+                let _ = app.emit(
+                    "cortador-done",
+                    CortadorDoneSummary {
+                        ok: 0,
+                        err: 1,
+                        cancelled: cancel_ref.load(Ordering::Relaxed),
+                    },
+                );
             }
             rodando_ref.store(false, Ordering::Relaxed);
             let _ = app.emit("cortador-status", false);
@@ -130,13 +189,23 @@ impl CortadorService {
         if self.rodando.swap(true, Ordering::Relaxed) {
             return Err("Já existe um corte em andamento.".to_string());
         }
+        self.cancel_flag.store(false, Ordering::Relaxed);
         let rodando_ref = self.rodando.clone();
+        let cancel_ref = self.cancel_flag.clone();
         let _ = app.emit("cortador-status", true);
 
         thread::spawn(move || {
-            let res = run_medidas(&app, &payload);
+            let res = run_medidas(&app, &payload, &cancel_ref);
             if let Err(e) = res {
                 let _ = app.emit("cortador-log", format!("❌ Erro: {e}"));
+                let _ = app.emit(
+                    "cortador-done",
+                    CortadorDoneSummary {
+                        ok: 0,
+                        err: 1,
+                        cancelled: cancel_ref.load(Ordering::Relaxed),
+                    },
+                );
             }
             rodando_ref.store(false, Ordering::Relaxed);
             let _ = app.emit("cortador-status", false);
@@ -155,7 +224,10 @@ fn is_image_ext(p: &Path) -> bool {
 }
 
 fn listar_paineis(entrada: &Path, gabarito: &Path) -> Result<Vec<PathBuf>, String> {
-    let re_plate = Regex::new(r"(?i) - P\d+$").unwrap();
+    if !entrada.is_dir() {
+        return Err(format!("Pasta de entrada inválida: {}", entrada.display()));
+    }
+    let re_plate = get_re_plate();
     let gab_abs = fs::canonicalize(gabarito).unwrap_or_else(|_| gabarito.to_path_buf());
 
     let entries = fs::read_dir(entrada).map_err(|e| format!("Erro ao ler pasta de entrada: {e}"))?;
@@ -200,7 +272,7 @@ fn resolver_paineis(
 ) -> Result<(Vec<PathBuf>, bool), String> {
     if let Some(sel) = arquivos {
         if !sel.is_empty() {
-            let re_plate = Regex::new(r"(?i) - P\d+$").unwrap();
+            let re_plate = get_re_plate();
             let gab_abs = fs::canonicalize(gabarito).unwrap_or_else(|_| gabarito.to_path_buf());
             let mut vistos = HashSet::new();
             let mut lista = Vec::new();
@@ -256,15 +328,11 @@ fn extrair_cidade_obrigatoria(
     filename: &str,
     overrides_norm: &HashMap<String, String>,
 ) -> Result<String, String> {
-    let re = Regex::new(
-        r"(?i)^\s*(?P<city>.+?)\s*\(\s*L\s*\d+(?:[.,]\d+)?\s*[X×]\s*A\s*\d+(?:[.,]\d+)?\s*\)\s*$",
-    )
-    .map_err(|e| e.to_string())?;
     let stem = Path::new(filename)
         .file_stem()
         .map(|s| s.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let caps = re.captures(&stem).ok_or_else(|| {
+    let caps = get_re_city().captures(&stem).ok_or_else(|| {
         format!(
             "Não foi possível extrair a cidade de '{filename}'. Use o formato 'CIDADE (L 2,00 X A 2,60).TIF'."
         )
@@ -280,6 +348,14 @@ fn extrair_cidade_obrigatoria(
         return Err(format!("A cidade de '{filename}' não pode estar vazia."));
     }
     Ok(final_city)
+}
+
+fn extrair_cidade_opcional(filename: &str, overrides: &HashMap<String, String>) -> Option<String> {
+    let overrides_norm: HashMap<String, String> = overrides
+        .iter()
+        .map(|(k, v)| (k.trim().to_lowercase(), v.trim().to_string()))
+        .collect();
+    extrair_cidade_obrigatoria(filename, &overrides_norm).ok()
 }
 
 fn get_cached_template(
@@ -383,10 +459,8 @@ fn build_plate_fast(
     let out_h = ch + 2 * pad_y;
     let mut out = RgbImage::from_pixel(out_w, out_h, Rgb([255, 255, 255]));
 
-    // Copia a faixa direto do painel para o destino (sem alocação de crop intermediário)
     blit_rgb_subrect_fast(&mut out, panel_rgb, x0, 0, cw, ch, pad_x, pad_y);
 
-    // Contorno preto de 1px na borda interna da arte (igual ao add_contour do Python)
     let black = Rgb([0, 0, 0]);
     for x in pad_x..(pad_x + cw) {
         out.put_pixel(x, pad_y, black);
@@ -401,6 +475,7 @@ fn build_plate_fast(
     let font_size = (30.0 * dpi.0 / 72.0).ceil() as f32;
 
     match plate_pos {
+        "single" => {}
         "start" => {
             paste_rgba_onto_rgb(&mut out, template_rgba, origin_x, 0);
             let lbl = format!("{number:02}");
@@ -436,8 +511,7 @@ fn build_plate_fast(
     (out, pad_x, pad_y)
 }
 
-/// Escreve a cidade no canto inferior esquerdo da arte JÁ ORIENTADA, com contorno branco
-/// (idêntico ao `add_city_label` de `cortador_core.py`).
+/// Escreve a cidade no canto inferior esquerdo da arte JÁ ORIENTADA, com contorno branco.
 #[allow(clippy::too_many_arguments)]
 fn add_city_label(
     img: &mut RgbImage,
@@ -544,7 +618,6 @@ fn move_file_safe(src: &Path, dst: &Path) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
-/// Move originais e placas um nível acima (idêntico ao `move_everything_up_one_level` do Python).
 fn move_everything_up_one_level(
     image_path: &Path,
     output_dir: &Path,
@@ -614,7 +687,149 @@ fn save_plate_rgb(
     }
 }
 
-fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String> {
+pub fn simular_auto(payload: &CortadorAutoPayload) -> Result<CortadorSimulacao, String> {
+    let entrada = PathBuf::from(payload.pasta.trim());
+    let gabarito = PathBuf::from(payload.gabarito.trim());
+    let (imagens, _) = resolver_paineis(&payload.arquivos, &entrada, &gabarito)?;
+    let tipo = payload.tipo.to_lowercase();
+
+    let mut itens = Vec::with_capacity(imagens.len());
+    let mut total_placas = 0usize;
+
+    for img_path in imagens {
+        let fname = img_path
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+
+        match read_image_dimensions_and_dpi(&img_path, 72.0) {
+            Ok((w, h, dpi_x, dpi_y)) => {
+                let (pw, ph, eff_dpi) = if tipo == "horizontal" {
+                    (h, w, dpi_y)
+                } else {
+                    (w, h, dpi_x)
+                };
+                let largura_cm = px_to_cm(pw, eff_dpi);
+                let altura_cm = px_to_cm(ph, if tipo == "horizontal" { dpi_x } else { dpi_y });
+                let med = payload.medida.max(1.0);
+                let n_placas = ((largura_cm / med).ceil() as usize).max(1);
+                let mut placas_cm = Vec::with_capacity(n_placas);
+                for i in 1..=n_placas {
+                    if i < n_placas {
+                        placas_cm.push((med * 10.0).round() / 10.0);
+                    } else {
+                        let rest = (largura_cm - med * ((n_placas - 1) as f64)).max(0.1);
+                        placas_cm.push((rest * 10.0).round() / 10.0);
+                    }
+                }
+                let cidade = if payload.cidade {
+                    extrair_cidade_opcional(&fname, &payload.overrides)
+                } else {
+                    None
+                };
+                total_placas += n_placas;
+                itens.push(CortadorSimItem {
+                    arquivo: fname,
+                    largura_cm: (largura_cm * 10.0).round() / 10.0,
+                    altura_cm: (altura_cm * 10.0).round() / 10.0,
+                    dpi: eff_dpi.round(),
+                    n_placas,
+                    placas_cm,
+                    cidade,
+                    erro: None,
+                });
+            }
+            Err(e) => {
+                itens.push(CortadorSimItem {
+                    arquivo: fname,
+                    largura_cm: 0.0,
+                    altura_cm: 0.0,
+                    dpi: 0.0,
+                    n_placas: 0,
+                    placas_cm: Vec::new(),
+                    cidade: None,
+                    erro: Some(e),
+                });
+            }
+        }
+    }
+
+    Ok(CortadorSimulacao {
+        total_paineis: itens.len(),
+        total_placas,
+        itens,
+    })
+}
+
+pub fn simular_medidas(payload: &CortadorMedidasPayload) -> Result<CortadorSimulacao, String> {
+    let entrada = PathBuf::from(payload.entrada.trim());
+    let gabarito = PathBuf::from(payload.gabarito.trim());
+    let (imagens, _) = resolver_paineis(&payload.arquivos, &entrada, &gabarito)?;
+    let tipo = payload.tipo.to_lowercase();
+
+    let mut itens = Vec::with_capacity(imagens.len());
+    let mut total_placas = 0usize;
+
+    for img_path in imagens {
+        let fname = img_path
+            .file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+
+        match read_image_dimensions_and_dpi(&img_path, 72.0) {
+            Ok((w, h, dpi_x, dpi_y)) => {
+                let (pw, ph, eff_dpi) = if tipo == "horizontal" {
+                    (h, w, dpi_y)
+                } else {
+                    (w, h, dpi_x)
+                };
+                let largura_cm = px_to_cm(pw, eff_dpi);
+                let altura_cm = px_to_cm(ph, if tipo == "horizontal" { dpi_x } else { dpi_y });
+                let n_placas = payload.medidas.len();
+                let placas_cm = payload
+                    .medidas
+                    .iter()
+                    .map(|m| (m * 10.0).round() / 10.0)
+                    .collect();
+                total_placas += n_placas;
+                itens.push(CortadorSimItem {
+                    arquivo: fname,
+                    largura_cm: (largura_cm * 10.0).round() / 10.0,
+                    altura_cm: (altura_cm * 10.0).round() / 10.0,
+                    dpi: eff_dpi.round(),
+                    n_placas,
+                    placas_cm,
+                    cidade: None,
+                    erro: None,
+                });
+            }
+            Err(e) => {
+                itens.push(CortadorSimItem {
+                    arquivo: fname,
+                    largura_cm: 0.0,
+                    altura_cm: 0.0,
+                    dpi: 0.0,
+                    n_placas: 0,
+                    placas_cm: Vec::new(),
+                    cidade: None,
+                    erro: Some(e),
+                });
+            }
+        }
+    }
+
+    Ok(CortadorSimulacao {
+        total_paineis: itens.len(),
+        total_placas,
+        itens,
+    })
+}
+
+fn run_auto(
+    app: &AppHandle,
+    payload: &CortadorAutoPayload,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
     let emit_log = |msg: String| {
         let _ = app.emit("cortador-log", msg);
     };
@@ -640,10 +855,17 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
     let total = imagens.len();
     if total == 0 {
         emit_log("❌ Nenhuma imagem encontrada para cortar.".to_string());
+        let _ = app.emit(
+            "cortador-done",
+            CortadorDoneSummary {
+                ok: 0,
+                err: 0,
+                cancelled: false,
+            },
+        );
         return Ok(());
     }
 
-    // Pré-valida os nomes de cidade de todo o lote antes de cortar (igual ao Python)
     let mut panel_cities: HashMap<String, String> = HashMap::new();
     if payload.cidade {
         let overrides_norm: HashMap<String, String> = payload
@@ -677,6 +899,8 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
     let font_bytes = load_system_font_bytes();
     let log_lock = Mutex::new(());
     let done = AtomicUsize::new(0);
+    let ok_cnt = AtomicUsize::new(0);
+    let err_cnt = AtomicUsize::new(0);
     let failed_list: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
     let workers = payload.workers.clamp(1, 16);
@@ -691,6 +915,10 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
 
     pool.install(|| {
         imagens.par_iter().enumerate().for_each(|(idx, img_path)| {
+            if cancel.load(Ordering::Relaxed) {
+                return;
+            }
+
             let fname = img_path
                 .file_name()
                 .map(|s| s.to_string_lossy().into_owned())
@@ -705,14 +933,14 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
 
             let res = (|| -> Result<(), String> {
                 let meta = load_image_with_meta(img_path, 72.0)?;
-                let mut panel_rgb = meta.image.to_rgb8();
+                let mut panel_rgb = meta.image.into_rgb8();
                 let dpi = (meta.dpi_x, meta.dpi_y);
 
                 if payload.inverter {
-                    panel_rgb = imageops::rotate180(&panel_rgb);
+                    imageops::rotate180_in_place(&mut panel_rgb);
                 }
                 if tipo == "horizontal" {
-                    panel_rgb = imageops::rotate270(&panel_rgb);
+                    panel_rgb = rotate270_rgb_fast(&panel_rgb);
                 }
 
                 let (pw, _ph) = panel_rgb.dimensions();
@@ -732,14 +960,16 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
                 let stem = img_path.file_stem().unwrap_or_default().to_string_lossy();
                 let ext = img_path.extension().unwrap_or_default().to_string_lossy();
 
-                // Matemática EXATA do cortador_core.py (largura fixa measure_cm + restante na última placa)
                 let mut size_of_cut: u32 = 0;
 
                 for plate in 1..=n_placas {
+                    if cancel.load(Ordering::Relaxed) {
+                        return Ok(());
+                    }
                     let (x0, x1, pos, num) = if plate == 1 {
                         let cut = (((payload.medida + payload.sobreposicao) * dpi.0) / 2.54) as u32;
                         size_of_cut = pw.min(cut);
-                        (0u32, size_of_cut, "start", plate)
+                        (0u32, size_of_cut, if n_placas == 1 { "single" } else { "start" }, plate)
                     } else if plate != n_placas {
                         let x_orig = ((size_of_cut as f64)
                             - (2.0 * payload.sobreposicao * dpi.0 / 2.54))
@@ -772,14 +1002,13 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
 
                     let mut final_padding = (pad_x, pad_y);
                     if tipo == "horizontal" {
-                        plate_rgb = imageops::rotate90(&plate_rgb);
+                        plate_rgb = rotate90_rgb_fast(&plate_rgb);
                         final_padding = (pad_y, pad_x);
                     }
                     if payload.inverter {
-                        plate_rgb = imageops::rotate180(&plate_rgb);
+                        imageops::rotate180_in_place(&mut plate_rgb);
                     }
 
-                    // Cidade escrita DEPOIS de restaurar orientação, no canto inferior esquerdo com contorno branco
                     if plate == n_placas {
                         if let Some(city_str) = city {
                             add_city_label(
@@ -813,9 +1042,12 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
             })();
 
             if let Err(e) = res {
+                err_cnt.fetch_add(1, Ordering::Relaxed);
                 failed_list.lock().unwrap().push(fname.clone());
                 let _g = log_lock.lock().unwrap();
                 emit_log(format!("❌ Erro em '{fname}': {e}"));
+            } else if !cancel.load(Ordering::Relaxed) {
+                ok_cnt.fetch_add(1, Ordering::Relaxed);
             }
 
             let cur = done.fetch_add(1, Ordering::Relaxed) + 1;
@@ -823,27 +1055,43 @@ fn run_auto(app: &AppHandle, payload: &CortadorAutoPayload) -> Result<(), String
         });
     });
 
+    let was_cancelled = cancel.load(Ordering::Relaxed);
     let failed = failed_list.into_inner().unwrap();
-    if !failed.is_empty() {
+
+    if was_cancelled {
+        emit_log("⏹ Corte cancelado pelo operador.".to_string());
+    } else if !failed.is_empty() {
         emit_log(format!(
             "⚠️ {} painel(is) falharam ({}). Os arquivos não serão movidos.",
             failed.len(),
             failed.join(", ")
         ));
-        return Ok(());
+    } else {
+        if payload.mover && !modo_arquivos {
+            let saida_move = saida_custom.as_deref().unwrap_or(&entrada);
+            emit_log("📦 Movendo originais e placas geradas um nível acima...".to_string());
+            move_everything_up_one_level(&entrada, saida_move, &emit_log);
+        }
+        emit_log("🏁 PROCESSO FINALIZADO COM SUCESSO!".to_string());
     }
 
-    if payload.mover && !modo_arquivos {
-        let saida_move = saida_custom.as_deref().unwrap_or(&entrada);
-        emit_log("📦 Movendo originais e placas geradas um nível acima...".to_string());
-        move_everything_up_one_level(&entrada, saida_move, &emit_log);
-    }
+    let _ = app.emit(
+        "cortador-done",
+        CortadorDoneSummary {
+            ok: ok_cnt.load(Ordering::Relaxed),
+            err: err_cnt.load(Ordering::Relaxed),
+            cancelled: was_cancelled,
+        },
+    );
 
-    emit_log("🏁 PROCESSO FINALIZADO COM SUCESSO!".to_string());
     Ok(())
 }
 
-fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), String> {
+fn run_medidas(
+    app: &AppHandle,
+    payload: &CortadorMedidasPayload,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
     let emit_log = |msg: String| {
         let _ = app.emit("cortador-log", msg);
     };
@@ -862,6 +1110,14 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
     let total = imagens.len();
     if total == 0 {
         emit_log("❌ Nenhuma imagem encontrada para cortar.".to_string());
+        let _ = app.emit(
+            "cortador-done",
+            CortadorDoneSummary {
+                ok: 0,
+                err: 0,
+                cancelled: false,
+            },
+        );
         return Ok(());
     }
 
@@ -875,7 +1131,13 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
     let tipo = payload.tipo.to_lowercase();
     let n_placas = payload.medidas.len();
 
+    let mut ok_cnt = 0usize;
+    let mut err_cnt = 0usize;
+
     for (idx, img_path) in imagens.iter().enumerate() {
+        if cancel.load(Ordering::Relaxed) {
+            break;
+        }
         let fname = img_path
             .file_name()
             .map(|s| s.to_string_lossy().into_owned())
@@ -884,13 +1146,13 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
 
         match load_image_with_meta(img_path, 72.0) {
             Ok(meta) => {
-                let mut panel_rgb = meta.image.to_rgb8();
+                let mut panel_rgb = meta.image.into_rgb8();
                 let dpi = (meta.dpi_x, meta.dpi_y);
                 if payload.inverter {
-                    panel_rgb = imageops::rotate180(&panel_rgb);
+                    imageops::rotate180_in_place(&mut panel_rgb);
                 }
                 if tipo == "horizontal" {
-                    panel_rgb = imageops::rotate270(&panel_rgb);
+                    panel_rgb = rotate270_rgb_fast(&panel_rgb);
                 }
 
                 let (pw, _ph) = panel_rgb.dimensions();
@@ -900,12 +1162,16 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
 
                 let mut x_origin_f = 0.0f64;
                 let mut size_of_cut_f = 0.0f64;
+                let mut panel_ok = true;
 
                 for (i, &measure_cm) in payload.medidas.iter().enumerate() {
+                    if cancel.load(Ordering::Relaxed) {
+                        break;
+                    }
                     let plate = i + 1;
                     let (pos, num) = if plate == 1 {
                         size_of_cut_f = ((measure_cm + payload.sobreposicao) * dpi.0) / 2.54;
-                        ("start", plate)
+                        (if n_placas == 1 { "single" } else { "start" }, plate)
                     } else if plate != n_placas {
                         x_origin_f = size_of_cut_f - ((2.0 * payload.sobreposicao) * dpi.0) / 2.54;
                         size_of_cut_f += (measure_cm * dpi.0) / 2.54;
@@ -934,10 +1200,10 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
                     );
 
                     if tipo == "horizontal" {
-                        plate_rgb = imageops::rotate90(&plate_rgb);
+                        plate_rgb = rotate90_rgb_fast(&plate_rgb);
                     }
                     if payload.inverter {
-                        plate_rgb = imageops::rotate180(&plate_rgb);
+                        imageops::rotate180_in_place(&mut plate_rgb);
                     }
 
                     let out_dir_placa = saida_custom
@@ -951,13 +1217,23 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
                         dpi,
                         meta.icc_profile.as_deref(),
                     ) {
+                        panel_ok = false;
                         emit_log(format!("⚠️ Erro ao salvar placa {plate}: {e}"));
                     } else {
                         emit_log(format!("  ✅ Placa {plate} salva."));
                     }
                 }
+
+                if panel_ok && !cancel.load(Ordering::Relaxed) {
+                    ok_cnt += 1;
+                } else if !panel_ok {
+                    err_cnt += 1;
+                }
             }
-            Err(e) => emit_log(format!("⚠️ Erro ao abrir '{fname}': {e}")),
+            Err(e) => {
+                err_cnt += 1;
+                emit_log(format!("⚠️ Erro ao abrir '{fname}': {e}"));
+            }
         }
 
         let _ = app.emit(
@@ -969,6 +1245,21 @@ fn run_medidas(app: &AppHandle, payload: &CortadorMedidasPayload) -> Result<(), 
         );
     }
 
-    emit_log("🎉 PROCESSO FINALIZADO COM SUCESSO!".to_string());
+    let was_cancelled = cancel.load(Ordering::Relaxed);
+    if was_cancelled {
+        emit_log("⏹ Corte cancelado pelo operador.".to_string());
+    } else {
+        emit_log("🎉 PROCESSO FINALIZADO COM SUCESSO!".to_string());
+    }
+
+    let _ = app.emit(
+        "cortador-done",
+        CortadorDoneSummary {
+            ok: ok_cnt,
+            err: err_cnt,
+            cancelled: was_cancelled,
+        },
+    );
+
     Ok(())
 }
