@@ -117,10 +117,7 @@ O favicon da interface fica em `public/favicon.svg`.
 
 ## Deploy (GitHub Actions → Windows)
 
-| Workflow | Gatilho | O que faz |
-|---|---|---|
-| [`ci.yml`](.github/workflows/ci.yml) | push/PR na `main` | `npm run build` + `cargo check --locked` em **windows-latest** (compila o código `#[cfg(windows)]`, ex.: WinRT PDF da Shopee). |
-| [`release.yml`](.github/workflows/release.yml) | tag `v*` (ou manual) | Gera o instalador **NSIS** (`*-setup.exe`) e o **MSI** e publica no **GitHub Releases**. Disparo manual apenas anexa os instaladores como artefato do job. |
+O workflow [`release.yml`](.github/workflows/release.yml) é acionado **exclusivamente quando uma nova tag `v*` é enviada** (ou via disparo manual no painel do GitHub). Ele compila a aplicação no Windows (`windows-latest`), assina os binários com Minisign, gera os instaladores NSIS (`*-setup.exe`) e MSI (`*.msi`), além do manifesto de atualização automática `latest.json`, publicando tudo diretamente no **GitHub Releases**.
 
 ### Publicando uma nova versão (git tag)
 
