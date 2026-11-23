@@ -3,89 +3,205 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel de Calandragem — PCP Central</title>
+<title>Calandragem — Controle de Produção</title>
 <style>
   :root {
-    --bg: #f8fafc;
-    --card-bg: #ffffff;
-    --card-header: #f1f5f9;
-    --border: #e2e8f0;
-    --border-strong: #cbd5e1;
-    --text: #0f172a;
-    --text-muted: #64748b;
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
-    --success: #059669;
-    --success-bg: #ecfdf5;
-    --warning: #d97706;
-    --warning-bg: #fffbeb;
-    --danger: #dc2626;
-    --danger-bg: #fef2f2;
-    --prio-alta: #dc2626;
-    --prio-media: #d97706;
-    --prio-baixa: #64748b;
-    --running: #0d9488;
-    --running-bg: #f0fdfa;
-    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+    --bg: #e8ecf1;
+    --surface: #ffffff;
+    --surface-2: #f4f6f9;
+    --surface-3: #eaeef4;
+    --border: #cfd6e0;
+    --border-subtle: #e2e7ee;
+    --border-strong: #9aa6b8;
+
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --ink-3: #64748b;
+
+    --brand: #1e40af;
+    --brand-hover: #1e3a8a;
+    --brand-light: #dbeafe;
+
+    --teal: #0f766e;
+    --teal-bg: #ccfbf1;
+    --teal-border: #5eead4;
+
+    --green: #15803d;
+    --green-bg: #dcfce7;
+    --green-border: #86efac;
+
+    --amber: #b45309;
+    --amber-bg: #fef3c7;
+    --amber-border: #fcd34d;
+
+    --red: #b91c1c;
+    --red-bg: #fee2e2;
+    --red-border: #fca5a5;
+
+    --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04);
+    --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.12);
+
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
   }
 
   html.dark {
-    --bg: #09090b;
-    --card-bg: #111114;
-    --card-header: #18181b;
-    --border: #27272a;
-    --border-strong: #3f3f46;
-    --text: #f4f4f5;
-    --text-muted: #a1a1aa;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --success: #10b981;
-    --success-bg: rgba(16, 185, 129, 0.12);
-    --warning: #f59e0b;
-    --warning-bg: rgba(245, 158, 11, 0.12);
-    --danger: #ef4444;
-    --danger-bg: rgba(239, 68, 68, 0.12);
-    --running: #14b8a6;
-    --running-bg: rgba(20, 184, 166, 0.12);
+    --bg: #0b0d11;
+    --surface: #13161c;
+    --surface-2: #191d25;
+    --surface-3: #202631;
+    --border: #2a313e;
+    --border-subtle: #1f2530;
+    --border-strong: #434e62;
+
+    --ink: #f1f5f9;
+    --ink-2: #cbd5e1;
+    --ink-3: #7e8b9f;
+
+    --brand: #2563eb;
+    --brand-hover: #3b82f6;
+    --brand-light: rgba(37, 99, 235, 0.18);
+
+    --teal: #14b8a6;
+    --teal-bg: rgba(20, 184, 166, 0.14);
+    --teal-border: rgba(20, 184, 166, 0.4);
+
+    --green: #22c55e;
+    --green-bg: rgba(34, 197, 94, 0.14);
+    --green-border: rgba(34, 197, 94, 0.35);
+
+    --amber: #f59e0b;
+    --amber-bg: rgba(245, 158, 11, 0.14);
+    --amber-border: rgba(245, 158, 11, 0.38);
+
+    --red: #ef4444;
+    --red-bg: rgba(239, 68, 68, 0.14);
+    --red-border: rgba(239, 68, 68, 0.35);
+
+    --shadow-card: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --shadow-card-hover: 0 6px 16px rgba(0, 0, 0, 0.55);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
     background: var(--bg);
-    color: var(--text);
-    font-family: var(--font);
+    color: var(--ink);
+    font-family: var(--font-sans);
     font-size: 13px;
     line-height: 1.4;
-    padding: 14px;
+    min-height: 100vh;
     -webkit-font-smoothing: antialiased;
   }
 
-  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  svg.ico { width: 14px; height: 14px; stroke-width: 2; stroke: currentColor; fill: none; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
-  /* Cabeçalho do navegador (escondido se embed=1) */
-  .top-header {
+  /* ================= BARRA DE TOPO ================= */
+  .topbar {
+    background: #0f172a;
+    color: #f8fafc;
+    height: 48px;
+    padding: 0 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
-    background: var(--card-bg);
+    border-bottom: 1px solid #1e293b;
+  }
+  .topbar.embed { display: none !important; }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .topbar-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    background: #1e293b;
+    color: #93c5fd;
+    border: 1px solid #334155;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+  }
+  .topbar-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #ffffff;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .ws-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    cursor: pointer;
+  }
+  .ws-indicator:hover { border-color: #475569; }
+  .ws-led { width: 7px; height: 7px; border-radius: 50%; background: #64748b; }
+  .ws-indicator.connected { border-color: #15803d; color: #bbf7d0; background: rgba(21, 128, 61, 0.2); }
+  .ws-indicator.connected .ws-led { background: #22c55e; }
+
+  .top-clock {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+    padding: 0 6px;
+  }
+
+  .btn-top {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn-top:hover { background: #334155; }
+
+  /* ================= CONTAINER ================= */
+  .container {
+    max-width: 1640px;
+    margin: 0 auto;
+    padding: 14px 18px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* ================= BARRA DE MÁQUINAS & COMANDOS ================= */
+  .control-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
-    margin-bottom: 12px;
-  }
-  .top-header.embed { display: none !important; }
-  .top-title { font-weight: 700; font-size: 13.5px; display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
-  .top-meta { display: flex; align-items: center; gap: 10px; }
-
-  /* Toolbar de Máquinas */
-  .machine-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
+    padding: 8px 12px;
+    box-shadow: var(--shadow-card);
   }
   .machine-tabs {
     display: flex;
@@ -96,372 +212,651 @@
   .machine-tab {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     padding: 6px 12px;
-    background: var(--card-bg);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 4px;
     font-weight: 600;
-    font-size: 12px;
+    font-size: 12.5px;
+    color: var(--ink-2);
     cursor: pointer;
-    color: var(--text-muted);
     transition: all 0.1s;
   }
   .machine-tab:hover {
     border-color: var(--border-strong);
-    color: var(--text);
+    color: var(--ink);
   }
   .machine-tab.active {
-    background: var(--text);
-    color: var(--card-bg);
-    border-color: var(--text);
+    background: var(--ink);
+    color: var(--surface);
+    border-color: var(--ink);
   }
-  .tab-badge {
-    font-family: var(--mono);
-    font-size: 10px;
-    padding: 1px 5px;
-    border-radius: 3px;
-    background: rgba(128,128,128,0.2);
-  }
-
-  .machine-actions {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  /* Grid de KPIs (4 Cards no Topo) */
-  .kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-bottom: 12px;
-  }
-  @media (max-width: 900px) {
-    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-  @media (max-width: 500px) {
-    .kpi-grid { grid-template-columns: 1fr; }
-  }
-
-  .kpi-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px 14px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  .kpi-label {
-    font-size: 10px;
-    font-family: var(--mono);
-    text-transform: uppercase;
-    color: var(--text-muted);
-    letter-spacing: 0.05em;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .kpi-value {
-    font-size: 20px;
-    font-weight: 700;
-    font-family: var(--mono);
-    color: var(--text);
-  }
-  .kpi-value.accent { color: var(--accent); }
-  .kpi-value.success { color: var(--success); }
-
-  /* Barra de Adicionar Rolo (Direta e Limpa) */
-  .add-panel {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px 14px;
-    margin-bottom: 12px;
-  }
-  .add-form {
-    display: grid;
-    grid-template-columns: 2.2fr 110px 110px 1.8fr auto;
-    gap: 8px;
-    align-items: end;
-  }
-  @media (max-width: 850px) {
-    .add-form { grid-template-columns: 1fr 1fr; }
-    .add-form button { grid-column: span 2; }
-  }
-
-  .form-group { display: flex; flex-direction: column; gap: 3px; }
-  .form-label {
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--text-muted);
-  }
-  .form-control {
-    width: 100%;
-    padding: 6px 9px;
-    border: 1px solid var(--border-strong);
-    background: var(--card-bg);
-    color: var(--text);
-    border-radius: 4px;
-    font-size: 12px;
-    font-family: inherit;
-  }
-  .form-control:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-  }
-
-  /* Barra de Filtros e Busca */
-  .filter-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-bottom: 12px;
-  }
-  .filter-chips {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-  .chip {
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    border: 1px solid var(--border);
-    background: var(--card-bg);
-    color: var(--text-muted);
-  }
-  .chip:hover { color: var(--text); }
-  .chip.active {
-    background: var(--card-header);
-    color: var(--text);
-    border-color: var(--border-strong);
-  }
-  .search-box {
-    width: 220px;
-  }
-
-  /* Botões */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    padding: 6px 11px;
-    border: 1px solid var(--border-strong);
-    background: var(--card-bg);
-    color: var(--text);
-    border-radius: 4px;
-    font-size: 11.5px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background 0.1s, border-color 0.1s;
-    user-select: none;
-    white-space: nowrap;
-  }
-  .btn:hover:not(:disabled) { background: var(--card-header); }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
-  .btn-success { background: var(--success); border-color: var(--success); color: #fff; }
-  .btn-danger { color: var(--danger); border-color: rgba(220,38,38,0.3); }
-  .btn-danger:hover:not(:disabled) { background: var(--danger-bg); }
-  .btn-sm { padding: 4px 8px; font-size: 11px; }
-  .btn-icon { width: 28px; height: 28px; padding: 0; }
-
-  /* Fila de Cards (Grid) */
-  .queue-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 12px;
-  }
-  .queue-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-left: 4px solid var(--accent);
-    border-radius: 5px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-    cursor: grab;
-    transition: border-color 0.1s, box-shadow 0.1s;
-  }
-  .queue-card[data-prio="alta"] { border-left-color: var(--prio-alta); }
-  .queue-card[data-prio="media"] { border-left-color: var(--prio-media); }
-  .queue-card[data-prio="baixa"] { border-left-color: var(--prio-baixa); }
-  .queue-card[data-status="andamento"] {
-    border-left-color: var(--running) !important;
-    box-shadow: 0 0 0 1px var(--running);
-  }
-  .queue-card.done {
-    border-left-color: var(--success) !important;
-    opacity: 0.65;
-    cursor: default;
-  }
-  .queue-card.done .card-title { text-decoration: line-through; }
-  .queue-card.dragging { opacity: 0.3; cursor: grabbing; }
-  .queue-card.drag-over { border-top: 3px solid var(--accent); }
-
-  .card-top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px 4px;
-    gap: 8px;
-  }
-  .card-order {
-    font-family: var(--mono);
+  .tab-count {
+    font-family: var(--font-mono);
     font-size: 11px;
     font-weight: 700;
     padding: 1px 6px;
     border-radius: 3px;
-    background: var(--card-header);
-    border: 1px solid var(--border);
+    background: rgba(128, 128, 128, 0.18);
   }
-  .queue-card[data-status="andamento"] .card-order {
-    background: var(--running);
-    color: #fff;
-    border-color: var(--running);
+  .machine-tab.active .tab-count {
+    background: rgba(255, 255, 255, 0.2);
   }
-  .card-title {
-    font-weight: 700;
-    font-size: 13.5px;
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .tab-speed {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    opacity: 0.7;
   }
-  .card-meters {
-    font-family: var(--mono);
-    font-size: 13.5px;
-    font-weight: 700;
-    color: var(--accent);
+  .tab-edit-btn {
+    opacity: 0.55;
+    padding: 1px 3px;
+    font-size: 11px;
+  }
+  .tab-edit-btn:hover { opacity: 1; }
+
+  .strip-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 
-  .card-mid {
-    padding: 6px 12px;
+  /* ================= PAINEL DE MÉTRICAS (UNIFICADO) ================= */
+  .metrics-board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  @media (max-width: 900px) {
+    .metrics-board { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 520px) {
+    .metrics-board { grid-template-columns: 1fr; }
+  }
+
+  .metric-cell {
+    padding: 12px 16px;
+    border-right: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    flex: 1;
+    gap: 2px;
   }
-  .badge-row { display: flex; flex-wrap: wrap; gap: 4px; }
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-family: var(--mono);
-    font-size: 9.5px;
+  .metric-cell:last-child { border-right: none; }
+  .metric-label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
     font-weight: 700;
     text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-3);
   }
-  .badge-alta { background: rgba(220,38,38,0.12); color: var(--prio-alta); }
-  .badge-media { background: rgba(217,119,6,0.12); color: var(--prio-media); }
-  .badge-baixa { background: rgba(100,116,139,0.15); color: var(--prio-baixa); }
-  .badge-running { background: var(--running); color: #fff; }
-  .badge-noimp { background: var(--warning-bg); color: var(--warning); border: 1px solid rgba(217,119,6,0.3); }
-  .badge-imp { background: var(--card-header); color: var(--text-muted); border: 1px solid var(--border); }
-  .dot-pulse { width: 5px; height: 5px; border-radius: 50%; background: #fff; animation: pulse 1.2s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
-
-  .card-desc {
+  .metric-val {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-top: 2px;
+  }
+  .metric-val.val-blue { color: var(--brand); }
+  .metric-val.val-green { color: var(--green); }
+  .metric-sub {
+    font-family: var(--font-mono);
     font-size: 11px;
-    font-family: var(--mono);
-    color: var(--text-muted);
-    word-break: break-word;
-    line-height: 1.35;
+    color: var(--ink-3);
   }
 
-  .card-actions {
+  /* ================= LAYOUT PRINCIPAL ================= */
+  .workspace {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  .workspace.sidebar-hidden {
+    grid-template-columns: 1fr;
+  }
+  .workspace.sidebar-hidden .sidebar {
+    display: none;
+  }
+  @media (max-width: 1080px) {
+    .workspace { grid-template-columns: 1fr; }
+  }
+
+  /* ================= SIDEBAR TÉCNICA ================= */
+  .sidebar {
     display: flex;
-    align-items: center;
-    gap: 4px;
-    padding-top: 6px;
-    margin-top: auto;
-    border-top: 1px solid var(--border);
+    flex-direction: column;
+    gap: 12px;
   }
-  .card-actions .spacer { flex: 1; }
-
-  .card-foot {
-    padding: 6px 12px;
-    background: var(--card-header);
-    border-top: 1px solid var(--border);
-    font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--text-muted);
+  .box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  .box-head {
+    padding: 9px 12px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-2);
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  .card-foot strong { color: var(--text); }
-  .card-foot .running-label { color: var(--running); font-weight: 700; }
+  .box-body {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .param-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 3px 0;
+  }
+  .param-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .param-note {
+    font-size: 11px;
+    color: var(--ink-3);
+    line-height: 1.35;
+  }
 
-  /* Pill do Notepad */
-  .ws-status {
+  /* ================= COLUNA DIREITA ================= */
+  .main-col {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  /* Barra de Adição */
+  .entry-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow-card);
+  }
+  .entry-form {
+    display: grid;
+    grid-template-columns: 2fr 115px 125px 2fr auto;
+    gap: 8px;
+    align-items: end;
+  }
+  @media (max-width: 860px) {
+    .entry-form { grid-template-columns: 1fr 1fr; }
+    .entry-form button { grid-column: span 2; }
+  }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+  }
+  .input {
+    width: 100%;
+    height: 32px;
+    padding: 0 9px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--ink);
+    border-radius: 4px;
+    font-size: 12.5px;
+    font-family: inherit;
+  }
+  .input:focus {
+    outline: 2px solid var(--brand);
+    outline-offset: -1px;
+    border-color: var(--brand);
+  }
+
+  /* Filtros */
+  .toolbar-filter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .segmented {
+    display: inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 2px;
+    gap: 2px;
+    box-shadow: var(--shadow-card);
+  }
+  .seg-btn {
+    padding: 5px 11px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+    cursor: pointer;
+    border: none;
+    background: transparent;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-family: var(--mono);
-    font-size: 11px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--border);
-    background: var(--card-bg);
-    cursor: pointer;
+    gap: 6px;
   }
-  .ws-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
-  .ws-status.connected { color: var(--success); border-color: rgba(5,150,105,0.3); background: var(--success-bg); }
-  .ws-status.connected .ws-dot { background: var(--success); }
+  .seg-btn:hover { color: var(--ink); background: var(--surface-2); }
+  .seg-btn.active {
+    background: var(--ink);
+    color: var(--surface);
+  }
+  .seg-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: 0.8;
+  }
 
-  /* Modais */
-  .modal-overlay {
+  /* ================= BOTÕES ================= */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--ink-2);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+  }
+  .btn:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-brand {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #ffffff;
+  }
+  .btn-brand:hover:not(:disabled) {
+    background: var(--brand-hover);
+    border-color: var(--brand-hover);
+    color: #ffffff;
+  }
+
+  .btn-teal {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: #ffffff;
+  }
+  .btn-teal:hover:not(:disabled) { opacity: 0.92; color: #ffffff; }
+
+  .btn-green {
+    background: var(--green);
+    border-color: var(--green);
+    color: #ffffff;
+  }
+  .btn-green:hover:not(:disabled) { opacity: 0.92; color: #ffffff; }
+
+  .btn-amber-outline {
+    background: var(--amber-bg);
+    border-color: var(--amber-border);
+    color: var(--amber);
+  }
+  .btn-amber-outline:hover:not(:disabled) {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: #ffffff;
+  }
+
+  .btn-green-outline {
+    background: var(--green-bg);
+    border-color: var(--green-border);
+    color: var(--green);
+  }
+  .btn-green-outline:hover:not(:disabled) {
+    background: var(--green);
+    border-color: var(--green);
+    color: #ffffff;
+  }
+
+  .btn-red-outline {
+    color: var(--red);
+    border-color: var(--red-border);
+    background: var(--surface);
+  }
+  .btn-red-outline:hover:not(:disabled) {
+    background: var(--red-bg);
+    border-color: var(--red);
+    color: var(--red);
+  }
+
+  .btn-sm { height: 28px; padding: 0 9px; font-size: 11.5px; }
+  .btn-sq { width: 28px; height: 28px; padding: 0; }
+
+  /* ================= GRID DE ORDENS / ROLOS ================= */
+  .rolls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+    gap: 12px;
+  }
+
+  .roll-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--brand);
+    border-radius: 6px;
+    box-shadow: var(--shadow-card);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    cursor: grab;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .roll-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--border-strong);
+  }
+
+  .roll-card[data-prio="alta"] { border-top-color: var(--red); }
+  .roll-card[data-prio="media"] { border-top-color: var(--amber); }
+  .roll-card[data-prio="baixa"] { border-top-color: var(--ink-3); }
+
+  .roll-card[data-status="andamento"] {
+    border-color: var(--teal);
+    border-top: 3px solid var(--teal) !important;
+    box-shadow: 0 0 0 1px var(--teal), var(--shadow-card-hover);
+  }
+
+  .roll-card.done {
+    border-top-color: var(--green) !important;
+    background: var(--surface-2);
+    opacity: 0.72;
+    cursor: default;
+  }
+  .roll-card.done .roll-title {
+    text-decoration: line-through;
+    color: var(--ink-3);
+  }
+  .roll-card.dragging { opacity: 0.35; cursor: grabbing; }
+  .roll-card.drag-over { outline: 2px solid var(--brand); }
+
+  /* Topo da Ficha do Rolo */
+  .roll-head {
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .roll-card[data-status="andamento"] .roll-head {
+    background: var(--teal-bg);
+    border-bottom-color: var(--teal-border);
+  }
+
+  .roll-id-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+  }
+  .roll-seq {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    color: var(--ink-2);
+  }
+  .roll-card[data-status="andamento"] .roll-seq {
+    background: var(--teal);
+    border-color: var(--teal);
+    color: #fff;
+  }
+  .roll-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .roll-meters {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+
+  /* Sub-barra de Tags */
+  .roll-meta {
+    padding: 7px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+  }
+  .tag-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .tag-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  .tag-prio-alta { background: var(--red-bg); color: var(--red); border-color: var(--red-border); }
+  .tag-prio-alta .tag-dot { background: var(--red); }
+
+  .tag-prio-media { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-border); }
+  .tag-prio-media .tag-dot { background: var(--amber); }
+
+  .tag-prio-baixa { background: var(--surface-3); color: var(--ink-3); border-color: var(--border); }
+  .tag-prio-baixa .tag-dot { background: var(--ink-3); }
+
+  .tag-printer {
+    background: var(--surface-2);
+    color: var(--ink-2);
+    border-color: var(--border);
+  }
+  .tag-live {
+    background: var(--teal);
+    color: #fff;
+  }
+
+  /* Tabela de Composição do Rolo */
+  .roll-body {
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+  }
+
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .comp-table tr {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .comp-table tr:last-child { border-bottom: none; }
+  .comp-table tr:nth-child(even) { background: var(--surface-2); }
+  .comp-table td {
+    padding: 5px 8px;
+  }
+  .comp-td-name {
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+  .comp-td-val {
+    text-align: right;
+    font-weight: 700;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .desc-note {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    border-left: 2px solid var(--border-strong);
+    padding: 6px 8px;
+  }
+
+  /* Barra de Progresso de Execução */
+  .run-progress {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .run-progress-head {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--teal);
+  }
+  .run-bar-bg {
+    height: 5px;
+    background: var(--surface-3);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .run-bar-fill {
+    height: 100%;
+    background: var(--teal);
+  }
+
+  /* Controles do Card */
+  .roll-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: auto;
+    padding-top: 6px;
+  }
+  .roll-controls .spacer { flex: 1; }
+
+  /* Rodapé Técnico do Card */
+  .roll-foot {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--border);
+    background: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .foot-cell {
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .foot-cell:first-child {
+    border-right: 1px solid var(--border-subtle);
+  }
+  .foot-lbl {
+    color: var(--ink-3);
+    font-size: 10px;
+    text-transform: uppercase;
+  }
+  .foot-val {
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  /* ================= MODAIS ================= */
+  .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.5);
+    background: rgba(15, 23, 42, 0.55);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 16px;
     z-index: 1000;
   }
-  .modal-box {
-    background: var(--card-bg);
+  .modal-card {
+    background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 6px;
     width: 100%;
-    max-width: 480px;
+    max-width: 440px;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.25);
     overflow: hidden;
-    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
   }
-  .modal-header {
-    padding: 10px 14px;
-    background: var(--card-header);
+  .modal-head {
+    padding: 11px 14px;
+    background: var(--surface-2);
     border-bottom: 1px solid var(--border);
     font-weight: 700;
-    font-size: 12px;
+    font-size: 12.5px;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
-  .modal-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; max-height: 80vh; overflow-y: auto; }
-  .modal-footer {
+  .modal-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .modal-foot {
     padding: 10px 14px;
-    background: var(--card-header);
+    background: var(--surface-2);
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: flex-end;
@@ -469,206 +864,256 @@
   }
 
   .hidden { display: none !important; }
-  .empty-state {
+  .empty-box {
     grid-column: 1 / -1;
-    padding: 42px 20px;
+    padding: 44px 20px;
     text-align: center;
-    font-family: var(--mono);
+    font-family: var(--font-mono);
     font-size: 12px;
-    color: var(--text-muted);
-    border: 1px dashed var(--border);
+    color: var(--ink-3);
+    border: 1px dashed var(--border-strong);
     border-radius: 6px;
-    background: var(--card-bg);
-    line-height: 1.6;
+    background: var(--surface);
   }
 </style>
 </head>
 <body>
 
-<!-- Cabeçalho (exibido apenas se acessado fora do PCP Central via browser) -->
-<header id="top-header" class="top-header">
-  <div class="top-title">
-    <span>🔥 Produção — Calandragem</span>
+<!-- Barra Superior (oculta quando embutida via iframe no app desktop) -->
+<header id="top-header" class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-tag">PCP // CAL-01</span>
+    <span class="topbar-title">CONTROLE DE FILA DE CALANDRAGEM</span>
   </div>
-  <div class="top-meta">
-    <div id="ws-status" class="ws-status" onclick="conectarNotepad()" title="Clique para reconectar ao Notepad">
-      <span class="ws-dot"></span>
-      <span id="ws-text">Notepad: conectando...</span>
+  <div class="topbar-right">
+    <div id="ws-status" class="ws-indicator" onclick="conectarNotepad()" title="Clique para reconectar ao Notepad">
+      <span class="ws-led"></span>
+      <span id="ws-text">NOTEPAD: CONECTANDO</span>
     </div>
-    <button type="button" class="btn btn-sm" onclick="toggleTheme()" id="btn-theme">Tema</button>
+    <span class="top-clock" id="clock-display">--:--:--</span>
+    <button type="button" class="btn-top" onclick="toggleTheme()" id="btn-theme">Modo Escuro</button>
   </div>
 </header>
 
-<!-- Barra de Máquinas e Ações Globais -->
-<div class="machine-bar">
-  <div class="machine-tabs" id="machine-tabs"></div>
-  <div class="machine-actions">
-    <button type="button" class="btn btn-sm" onclick="abrirSetup()" title="Configurações de velocidade e setup da calandra">⚙️ Setup & Velocidades</button>
-    <button type="button" class="btn btn-sm" onclick="ordenarPorPrioridade()" title="Ordenar rolos pendentes por prioridade">⇅ Prioridade</button>
-    <button type="button" class="btn btn-sm btn-danger" onclick="limparFila()" title="Limpar fila da máquina ativa">🗑️ Limpar</button>
-    <div class="ws-status mono" id="clock-display" style="cursor:default;" title="Horário do sistema">--:--:--</div>
-  </div>
-</div>
-
-<!-- 4 KPIs Horizontais Diretos -->
-<div class="kpi-grid">
-  <div class="kpi-card">
-    <div class="kpi-label">Metros Pendentes</div>
-    <div class="kpi-value accent" id="kpi-metros">0,00 m</div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-label">Tempo Estimado (c/ trocas)</div>
-    <div class="kpi-value" id="kpi-tempo">0h 00m</div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-label">Previsão de Término</div>
-    <div class="kpi-value success" id="kpi-fim">--:--</div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-label">Rolos na Fila</div>
-    <div class="kpi-value" id="kpi-rolos">0 / 0</div>
-  </div>
-</div>
-
-<!-- Barra de Adição Direta -->
-<div class="add-panel">
-  <form id="form-add" class="add-form">
-    <div class="form-group">
-      <label class="form-label" for="add-nome">Material / Rolo (Tecla N)</label>
-      <input type="text" id="add-nome" class="form-control" placeholder="Ex: DryFit / Rolo T05" required>
+<div class="container">
+  <!-- Barra de Seleção de Máquinas e Ações -->
+  <div class="control-strip">
+    <div class="machine-tabs" id="machine-tabs"></div>
+    <div class="strip-actions">
+      <button type="button" class="btn btn-sm" onclick="toggleSidebar()" title="Exibir ou ocultar configurações laterais">
+        <svg class="ico" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+        <span>Parâmetros & Velocidades</span>
+      </button>
+      <button type="button" class="btn btn-sm" onclick="ordenarPorPrioridade()" title="Ordenar rolos pendentes por prioridade">
+        <svg class="ico" viewBox="0 0 24 24"><line x1="4" y1="6" x2="13" y2="6"/><line x1="4" y1="12" x2="11" y2="12"/><line x1="4" y1="18" x2="11" y2="18"/><polyline points="15 15 18 18 21 15"/><line x1="18" y1="6" x2="18" y2="18"/></svg>
+        <span>Ordenar Prioridade</span>
+      </button>
+      <button type="button" class="btn btn-sm btn-red-outline" onclick="limparFila()" title="Limpar fila da calandra ativa">
+        <svg class="ico" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        <span>Limpar Fila</span>
+      </button>
     </div>
-    <div class="form-group">
-      <label class="form-label" for="add-metros">Metros</label>
-      <input type="number" step="0.01" min="0.01" id="add-metros" class="form-control mono" placeholder="0.00" required>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="add-prio">Prioridade</label>
-      <select id="add-prio" class="form-control">
-        <option value="alta">Alta</option>
-        <option value="media" selected>Média</option>
-        <option value="baixa">Baixa</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="add-desc">Observação / Composição</label>
-      <input type="text" id="add-desc" class="form-control" placeholder="(Opcional)">
-    </div>
-    <button type="submit" class="btn btn-primary" style="height:31px;">+ Adicionar</button>
-  </form>
-</div>
-
-<!-- Barra de Filtros e Busca -->
-<div class="filter-bar">
-  <div class="filter-chips">
-    <div class="chip active" data-filter="todos" onclick="setFiltro('todos')">Todos (<span id="cnt-todos">0</span>)</div>
-    <div class="chip" data-filter="pendentes" onclick="setFiltro('pendentes')">Pendentes (<span id="cnt-pend">0</span>)</div>
-    <div class="chip" data-filter="andamento" onclick="setFiltro('andamento')">Em Produção (<span id="cnt-and">0</span>)</div>
-    <div class="chip" data-filter="concluidos" onclick="setFiltro('concluidos')">Concluídos (<span id="cnt-conc">0</span>)</div>
   </div>
-  <input type="text" id="filtro-busca" class="form-control search-box mono" placeholder="Filtrar rolo ou tecido..." oninput="renderizar()">
-</div>
 
-<!-- Grid de Cards da Fila -->
-<div class="queue-grid" id="queue-grid"></div>
-
-<!-- Modal: Setup & Velocidades -->
-<div id="modal-setup" class="modal-overlay hidden" onmousedown="if(event.target===this)fecharModal()">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span>Setup da Calandra & Tecidos</span>
-      <button type="button" class="btn btn-sm" onclick="fecharModal()">✕</button>
+  <!-- Painel de Métricas Unificado -->
+  <div class="metrics-board">
+    <div class="metric-cell">
+      <span class="metric-label">Metragem Pendente</span>
+      <span class="metric-val val-blue" id="kpi-metros">0,00 m</span>
+      <span class="metric-sub" id="kpi-metros-sub">0,0 m concluídos</span>
     </div>
-    <div class="modal-body">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="form-group">
-          <label class="form-label">Velocidade Padrão (m/min)</label>
-          <input type="number" id="in-vel" class="form-control mono" step="0.1" min="0.1" max="10" oninput="atualizarConfigMaquina()">
+    <div class="metric-cell">
+      <span class="metric-label">Tempo Estimado (c/ Trocas)</span>
+      <span class="metric-val" id="kpi-tempo">0h 00m</span>
+      <span class="metric-sub" id="kpi-tempo-sub">Setup: 5 min/rolo</span>
+    </div>
+    <div class="metric-cell">
+      <span class="metric-label">Previsão de Término</span>
+      <span class="metric-val val-green" id="kpi-fim">--:--</span>
+      <span class="metric-sub" id="kpi-fim-sub">Projeção contínua</span>
+    </div>
+    <div class="metric-cell">
+      <span class="metric-label">Ocupação da Fila</span>
+      <span class="metric-val" id="kpi-rolos">0 pend / 0 conc</span>
+      <span class="metric-sub" id="kpi-rolos-sub">Calandra 1</span>
+    </div>
+  </div>
+
+  <!-- Área de Trabalho -->
+  <div class="workspace" id="workspace">
+    <!-- Coluna Lateral de Parâmetros -->
+    <aside class="sidebar">
+      <div class="box">
+        <div class="box-head">
+          <span>Parâmetros da Máquina</span>
+          <span class="mono" id="lbl-maq-ativa">Calandra 1</span>
         </div>
-        <div class="form-group">
-          <label class="form-label">Tempo de Troca (min)</label>
-          <input type="number" id="in-setup" class="form-control mono" min="0" oninput="atualizarConfigMaquina()">
+        <div class="box-body">
+          <div class="field">
+            <label class="field-label" for="in-vel">Velocidade Padrão (m/min)</label>
+            <input type="number" id="in-vel" class="input mono" step="0.1" min="0.1" max="15" oninput="atualizarConfigMaquina()">
+          </div>
+          <div class="field">
+            <label class="field-label" for="in-setup">Intervalo de Troca (min)</label>
+            <input type="number" id="in-setup" class="input mono" min="0" oninput="atualizarConfigMaquina()">
+          </div>
+          <div class="field">
+            <label class="field-label" for="in-inicio">Horário Base de Início</label>
+            <input type="time" id="in-inicio" class="input mono" onchange="atualizarConfigMaquina()">
+            <span class="param-note">Em branco = calcula a partir do horário atual.</span>
+          </div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Hora de Início da Fila (Vazio = Agora)</label>
-        <input type="time" id="in-inicio" class="form-control mono" onchange="atualizarConfigMaquina()">
-      </div>
-      <div style="border-top:1px solid var(--border);padding-top:10px;">
-        <div class="form-label" style="margin-bottom:6px;">Velocidade por Tecido (m/min)</div>
-        <div id="cfg-tecidos" style="max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;margin-bottom:8px;"></div>
-        <div style="display:flex;gap:4px;">
-          <input type="text" id="cfg-novo-tecido" class="form-control mono" placeholder="Adicionar tecido..." onkeydown="if(event.key==='Enter')adicionarTecido()">
-          <button type="button" class="btn btn-sm" onclick="adicionarTecido()">+ Tecido</button>
+
+      <div class="box">
+        <div class="box-head">
+          <span>Plotters de Impressão</span>
+          <span class="mono" style="font-size:10px;color:var(--ink-3);">m/hora</span>
+        </div>
+        <div class="box-body">
+          <div id="cfg-impressoras" style="display:flex;flex-direction:column;gap:6px;"></div>
+          <span class="param-note">Adicionado ao cálculo apenas quando o rolo está marcado como Não Impresso.</span>
         </div>
       </div>
-    </div>
-    <div class="modal-footer">
-      <button type="button" class="btn btn-primary" onclick="fecharModal()">Concluído</button>
-    </div>
+
+      <div class="box">
+        <div class="box-head">
+          <span>Velocidade por Tecido</span>
+          <span class="mono" style="font-size:10px;color:var(--ink-3);">m/min</span>
+        </div>
+        <div class="box-body">
+          <div id="cfg-tecidos" style="max-height:210px;overflow-y:auto;display:flex;flex-direction:column;gap:5px;"></div>
+          <div style="display:flex;gap:6px;margin-top:4px;">
+            <input type="text" id="cfg-novo-tecido" class="input mono" placeholder="Novo tecido..." onkeydown="if(event.key==='Enter')adicionarTecido()">
+            <button type="button" class="btn btn-sm btn-brand" onclick="adicionarTecido()">Adicionar</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Coluna Principal -->
+    <main class="main-col">
+      <!-- Entrada Rápida -->
+      <div class="entry-bar">
+        <form id="form-add" class="entry-form">
+          <div class="field">
+            <label class="field-label" for="add-nome">Identificação do Rolo / Material (Atalho: N)</label>
+            <input type="text" id="add-nome" class="input" placeholder="Ex: Rolo A3 / DryFit" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="add-metros">Metros (m)</label>
+            <input type="number" step="0.01" min="0.01" id="add-metros" class="input mono" placeholder="0.00" required>
+          </div>
+          <div class="field">
+            <label class="field-label" for="add-prio">Prioridade</label>
+            <select id="add-prio" class="input">
+              <option value="alta">Alta</option>
+              <option value="media" selected>Média</option>
+              <option value="baixa">Baixa</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field-label" for="add-desc">Composição / Observação</label>
+            <input type="text" id="add-desc" class="input" placeholder="Ex: TACTEL 35m + MALHA 20m">
+          </div>
+          <button type="submit" class="btn btn-brand">
+            <svg class="ico" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Inserir Rolo</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Barra de Filtros -->
+      <div class="toolbar-filter">
+        <div class="segmented">
+          <button type="button" class="seg-btn active" data-filter="todos" onclick="setFiltro('todos')">
+            <span>Todos</span>
+            <span class="seg-num" id="cnt-todos">0</span>
+          </button>
+          <button type="button" class="seg-btn" data-filter="pendentes" onclick="setFiltro('pendentes')">
+            <span>Pendentes</span>
+            <span class="seg-num" id="cnt-pend">0</span>
+          </button>
+          <button type="button" class="seg-btn" data-filter="andamento" onclick="setFiltro('andamento')">
+            <span>Em Execução</span>
+            <span class="seg-num" id="cnt-and">0</span>
+          </button>
+          <button type="button" class="seg-btn" data-filter="concluidos" onclick="setFiltro('concluidos')">
+            <span>Concluídos</span>
+            <span class="seg-num" id="cnt-conc">0</span>
+          </button>
+        </div>
+
+        <input type="text" id="filtro-busca" class="input mono" style="width:240px;" placeholder="Pesquisar rolo ou tecido..." oninput="renderizar()">
+      </div>
+
+      <!-- Grid de Rolos -->
+      <div class="rolls-grid" id="queue-grid"></div>
+    </main>
   </div>
 </div>
 
 <!-- Modal: Editar Rolo -->
-<div id="modal-edit" class="modal-overlay hidden" onmousedown="if(event.target===this)fecharModal()">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span>Editar Rolo de Produção</span>
-      <button type="button" class="btn btn-sm" onclick="fecharModal()">✕</button>
+<div id="modal-edit" class="modal-backdrop hidden" onmousedown="if(event.target===this)fecharModal()">
+  <div class="modal-card">
+    <div class="modal-head">
+      <span>Editar Ordem de Rolo</span>
+      <button type="button" class="btn btn-sq btn-sm" onclick="fecharModal()">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="edit-idx">
-      <div class="form-group">
-        <label class="form-label">Material / Identificação</label>
-        <input type="text" id="edit-nome" class="form-control">
+      <div class="field">
+        <label class="field-label">Identificação / Material</label>
+        <input type="text" id="edit-nome" class="input">
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        <div class="form-group">
-          <label class="form-label">Metros</label>
-          <input type="number" step="0.01" id="edit-metros" class="form-control mono">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="field">
+          <label class="field-label">Metragem (m)</label>
+          <input type="number" step="0.01" id="edit-metros" class="input mono">
         </div>
-        <div class="form-group">
-          <label class="form-label">Prioridade</label>
-          <select id="edit-prio" class="form-control">
+        <div class="field">
+          <label class="field-label">Prioridade</label>
+          <select id="edit-prio" class="input">
             <option value="alta">Alta</option>
             <option value="media">Média</option>
             <option value="baixa">Baixa</option>
           </select>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Observação / Composição</label>
-        <input type="text" id="edit-desc" class="form-control">
+      <div class="field">
+        <label class="field-label">Composição / Observação</label>
+        <input type="text" id="edit-desc" class="input">
       </div>
-      <div class="form-group" id="edit-move-box">
-        <label class="form-label">Transferir para Máquina</label>
-        <select id="edit-maquina" class="form-control"></select>
+      <div class="field" id="edit-move-box">
+        <label class="field-label">Transferir para Calandra</label>
+        <select id="edit-maquina" class="input"></select>
       </div>
     </div>
-    <div class="modal-footer">
-      <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
-      <button type="button" class="btn btn-primary" onclick="salvarEdicao()">Salvar</button>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-sm" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn btn-sm btn-brand" onclick="salvarEdicao()">Salvar</button>
     </div>
   </div>
 </div>
 
-<!-- Modal: Nova / Editar Máquina -->
-<div id="modal-maq" class="modal-overlay hidden" onmousedown="if(event.target===this)fecharModal()">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span id="modal-maq-title">Máquina</span>
-      <button type="button" class="btn btn-sm" onclick="fecharModal()">✕</button>
+<!-- Modal: Máquina -->
+<div id="modal-maq" class="modal-backdrop hidden" onmousedown="if(event.target===this)fecharModal()">
+  <div class="modal-card">
+    <div class="modal-head">
+      <span id="modal-maq-title">Calandra</span>
+      <button type="button" class="btn btn-sq btn-sm" onclick="fecharModal()">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="maq-id">
-      <div class="form-group">
-        <label class="form-label">Nome da Calandra</label>
-        <input type="text" id="maq-nome" class="form-control" placeholder="Ex: Calandra 2" onkeydown="if(event.key==='Enter')salvarMaquina()">
+      <div class="field">
+        <label class="field-label">Identificação da Máquina</label>
+        <input type="text" id="maq-nome" class="input" placeholder="Ex: Calandra 2" onkeydown="if(event.key==='Enter')salvarMaquina()">
       </div>
     </div>
-    <div class="modal-footer">
-      <button type="button" id="btn-del-maq" class="btn btn-danger hidden" onclick="excluirMaquina()">Excluir Máquina</button>
-      <button type="button" class="btn" onclick="fecharModal()">Cancelar</button>
-      <button type="button" class="btn btn-primary" onclick="salvarMaquina()">Salvar</button>
+    <div class="modal-foot">
+      <button type="button" id="btn-del-maq" class="btn btn-sm btn-red-outline hidden" onclick="excluirMaquina()">Excluir</button>
+      <button type="button" class="btn btn-sm" onclick="fecharModal()">Cancelar</button>
+      <button type="button" class="btn btn-sm btn-brand" onclick="salvarMaquina()">Salvar</button>
     </div>
   </div>
 </div>
@@ -677,10 +1122,20 @@
 const STORAGE_KEY = 'pcp-calandragem-app-v2';
 const WS_URL_KEY = 'pcp-notepad-config';
 const THEME_KEY = 'pcp-calandragem-theme';
+const SIDEBAR_KEY = 'pcp-calandragem-sidebar';
 
 const PRIORIDADE_PESO = { alta: 0, media: 1, baixa: 2 };
 const PRIORIDADE_LABEL = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
-const IMPRESSORAS_PADRAO = { T: { nome: 'TEX', metrosHora: 50 }, A: { nome: 'APS', metrosHora: 38 } };
+const IMPRESSORAS_PADRAO = {
+  T: { nome: 'TEX', metrosHora: 50 },
+  A: { nome: 'APS', metrosHora: 38 }
+};
+
+const SVG_PRINT = '<svg class="ico" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+const SVG_PLAY = '<svg class="ico" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+const SVG_PAUSE = '<svg class="ico" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+const SVG_CHECK = '<svg class="ico" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
+const SVG_EDIT = '<svg class="ico" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
 
 let appState = { maquinas: [], maquinaAtivaId: null, config: {} };
 let notepadSocket = null;
@@ -689,13 +1144,11 @@ let notepadUltimoTexto = null;
 let dragIndex = null;
 let filtroAtual = 'todos';
 
-// Verifica se está dentro de iframe
 const params = new URLSearchParams(window.location.search);
 if (params.get('embed') === '1') {
   document.getElementById('top-header').classList.add('embed');
 }
 
-// Tema Claro / Escuro
 function applyTheme(dark) {
   document.documentElement.classList.toggle('dark', Boolean(dark));
   const btn = document.getElementById('btn-theme');
@@ -711,7 +1164,15 @@ window.addEventListener('message', e => {
   if (e.data && e.data.type === 'pcp-theme') applyTheme(Boolean(e.data.dark));
 });
 
-// Helpers
+function toggleSidebar() {
+  const ws = document.getElementById('workspace');
+  const hidden = ws.classList.toggle('sidebar-hidden');
+  localStorage.setItem(SIDEBAR_KEY, hidden ? '1' : '0');
+}
+if (localStorage.getItem(SIDEBAR_KEY) === '1') {
+  document.getElementById('workspace').classList.add('sidebar-hidden');
+}
+
 const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const pad = n => String(n).padStart(2, '0');
 const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -728,7 +1189,7 @@ function escapeHtml(s) {
 function formatarDuracaoMin(min) {
   min = Math.max(0, Math.round(min));
   const h = Math.floor(min / 60), m = min % 60;
-  return h > 0 ? `${h}h ${pad(m)}m` : `${m}min`;
+  return h > 0 ? `${h}h ${pad(m)}m` : `${m}m`;
 }
 
 function maquinaAtiva() {
@@ -808,9 +1269,11 @@ function carregarConfigNoFormulario() {
   const v = document.getElementById('in-vel');
   const s = document.getElementById('in-setup');
   const i = document.getElementById('in-inicio');
+  const lbl = document.getElementById('lbl-maq-ativa');
   if (v) v.value = m.velocidade;
   if (s) s.value = m.setupMin;
   if (i) i.value = m.horaInicio || '';
+  if (lbl) lbl.textContent = m.nome;
 }
 
 function atualizarConfigMaquina() {
@@ -823,25 +1286,49 @@ function atualizarConfigMaquina() {
 }
 
 function renderizarConfig() {
+  const ativo = document.activeElement;
+  if (ativo && ativo.closest && ativo.closest('#cfg-impressoras, #cfg-tecidos')) return;
+
+  const imp = document.getElementById('cfg-impressoras');
+  if (imp) {
+    imp.innerHTML = Object.entries(appState.config.impressoras).map(([letra, info]) => `
+      <div class="param-row">
+        <span class="param-name">${escapeHtml(info.nome)} <span style="color:var(--ink-3);font-weight:400;">(Lote ${letra})</span></span>
+        <input type="number" step="1" min="1" class="input mono" style="width:76px;height:26px;font-size:11.5px;"
+               value="${info.metrosHora}" onchange="setVelocidadeImpressora('${letra}', this.value)">
+      </div>
+    `).join('');
+  }
+
   const tec = document.getElementById('cfg-tecidos');
   if (!tec) return;
   const nomes = new Set(Object.keys(appState.config.tecidos));
   appState.maquinas.forEach(m => m.producoes.forEach(p => (p.composicao || []).forEach(c => nomes.add(chaveTecido(c.nome)))));
   const lista = [...nomes].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   tec.innerHTML = lista.length ? lista.map(n => `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-      <span class="mono" style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(n)}">${escapeHtml(n)}</span>
-      <input type="number" step="0.1" min="0" class="form-control mono" style="width:70px;padding:3px 6px;font-size:11px;" placeholder="${maquinaAtiva().velocidade}"
+    <div class="param-row">
+      <span class="param-name mono" title="${escapeHtml(n)}">${escapeHtml(n)}</span>
+      <input type="number" step="0.1" min="0" class="input mono" style="width:72px;height:26px;font-size:11.5px;"
+             placeholder="${maquinaAtiva().velocidade}"
              value="${appState.config.tecidos[n] ?? ''}" data-tecido="${escapeHtml(n)}"
              onchange="setVelocidadeTecido(this.dataset.tecido, this.value)">
-    </div>`).join('') : '<div class="mono" style="font-size:11px;color:var(--text-muted)">Nenhum tecido personalizado.</div>';
+    </div>`).join('') : '<div class="mono" style="font-size:11px;color:var(--ink-3)">Nenhum tecido registrado.</div>';
+}
+
+function setVelocidadeImpressora(letra, valor) {
+  if (appState.config.impressoras[letra]) {
+    appState.config.impressoras[letra].metrosHora = parseFloat(valor) || 0;
+    salvar();
+    renderizar();
+  }
 }
 
 function setVelocidadeTecido(nome, valor) {
   const v = parseFloat(valor);
   if (v > 0) appState.config.tecidos[nome] = v;
   else delete appState.config.tecidos[nome];
-  salvar(); renderizar();
+  salvar();
+  renderizar();
 }
 
 function adicionarTecido() {
@@ -850,19 +1337,24 @@ function adicionarTecido() {
   if (!nome) return;
   if (!(nome in appState.config.tecidos)) appState.config.tecidos[nome] = maquinaAtiva().velocidade;
   input.value = '';
-  salvar(); renderizar(); renderizarConfig();
+  salvar();
+  renderizar();
 }
 
-// Abas de Máquinas
 function renderizarTabs() {
   const c = document.getElementById('machine-tabs');
   c.innerHTML = '';
   appState.maquinas.forEach(m => {
     const tab = document.createElement('div');
-    tab.className = `machine-tab ${m.id === appState.maquinaAtivaId ? 'active' : ''}`;
+    const isAtiva = m.id === appState.maquinaAtivaId;
+    tab.className = `machine-tab ${isAtiva ? 'active' : ''}`;
     const pend = m.producoes.filter(p => !p.concluido).length;
-    tab.innerHTML = `<span>${escapeHtml(m.nome)}</span><span class="tab-badge">${pend}</span>
-      <span style="opacity:0.6;font-size:11px;margin-left:2px;" title="Editar máquina" onclick="event.stopPropagation();abrirMaquina('${m.id}')">✎</span>`;
+    tab.innerHTML = `
+      <span>${escapeHtml(m.nome)}</span>
+      <span class="tab-count">${pend}</span>
+      <span class="tab-speed">${m.velocidade}m/min</span>
+      <span class="tab-edit-btn" title="Configurar máquina" onclick="event.stopPropagation();abrirMaquina('${m.id}')">✎</span>
+    `;
     tab.onclick = () => trocarMaquina(m.id);
     c.appendChild(tab);
   });
@@ -884,7 +1376,7 @@ function trocarMaquina(id) {
 
 function abrirMaquina(id) {
   const m = id ? appState.maquinas.find(x => x.id === id) : null;
-  document.getElementById('modal-maq-title').textContent = m ? 'Editar Máquina' : 'Nova Máquina';
+  document.getElementById('modal-maq-title').textContent = m ? 'Editar Calandra' : 'Nova Calandra';
   document.getElementById('maq-id').value = m ? m.id : '';
   document.getElementById('maq-nome').value = m ? m.nome : '';
   document.getElementById('btn-del-maq').classList.toggle('hidden', !m || appState.maquinas.length <= 1);
@@ -903,7 +1395,10 @@ function salvarMaquina() {
     appState.maquinas.push(nova);
     appState.maquinaAtivaId = nova.id;
   }
-  salvar(); carregarConfigNoFormulario(); renderizar(); fecharModal();
+  salvar();
+  carregarConfigNoFormulario();
+  renderizar();
+  fecharModal();
 }
 
 function excluirMaquina() {
@@ -912,39 +1407,35 @@ function excluirMaquina() {
   if (!confirm('Excluir esta máquina e toda sua fila?')) return;
   appState.maquinas = appState.maquinas.filter(m => m.id !== id);
   if (appState.maquinaAtivaId === id) appState.maquinaAtivaId = appState.maquinas[0].id;
-  salvar(); carregarConfigNoFormulario(); renderizar(); fecharModal();
-}
-
-function abrirSetup() {
+  salvar();
   carregarConfigNoFormulario();
-  renderizarConfig();
-  document.getElementById('modal-setup').classList.remove('hidden');
+  renderizar();
+  fecharModal();
 }
 
 function fecharModal() {
   document.getElementById('modal-edit').classList.add('hidden');
   document.getElementById('modal-maq').classList.add('hidden');
-  document.getElementById('modal-setup').classList.add('hidden');
 }
 
 function setFiltro(f) {
   filtroAtual = f;
-  document.querySelectorAll('.chip').forEach(c => {
+  document.querySelectorAll('.seg-btn').forEach(c => {
     c.classList.toggle('active', c.dataset.filter === f);
   });
   renderizar();
 }
 
-// Renderização dos cards e cálculos da fila
 function renderizar() {
   const m = maquinaAtiva();
   const list = document.getElementById('queue-grid');
   const setupMin = m.setupMin || 0;
   const busca = (document.getElementById('filtro-busca')?.value || '').toLowerCase().trim();
 
-  // Relógio
   const clock = document.getElementById('clock-display');
   if (clock) clock.textContent = hhmmss(new Date());
+
+  renderizarConfig();
 
   const temEmAndamento = m.producoes.some(p => !p.concluido && p.iniciadoEm);
   const relogio = new Date();
@@ -954,6 +1445,7 @@ function renderizar() {
   }
 
   let metrosPendentes = 0;
+  let metrosConcluidos = 0;
   let minutosRestantes = 0;
   let cntPend = 0, cntAnd = 0, cntConc = 0;
 
@@ -965,19 +1457,28 @@ function renderizar() {
     const impressora = impressoraDoRolo(p);
     const status = p.concluido ? 'concluido' : (p.iniciadoEm ? 'andamento' : 'pendente');
 
-    if (p.concluido) cntConc++;
-    else if (p.iniciadoEm) { cntAnd++; cntPend++; }
-    else cntPend++;
+    if (p.concluido) {
+      cntConc++;
+      metrosConcluidos += metros;
+    } else if (p.iniciadoEm) {
+      cntAnd++;
+      cntPend++;
+    } else {
+      cntPend++;
+    }
 
     const calMin = minutosCalandra(p, m);
     const impMin = minutosImpressao(p);
     const durTotal = impMin + calMin;
 
-    let rodape = '';
+    let footLeft = '';
+    let footRight = '';
+    let progressHtml = '';
+
     if (p.concluido) {
       const real = p.iniciadoEm && p.concluidoEm ? (new Date(p.concluidoEm) - new Date(p.iniciadoEm)) / 60000 : null;
-      rodape = `<span style="color:var(--success);font-weight:700;">✓ Concluído</span>` +
-        (real !== null ? `<span>Real: ${formatarDuracaoMin(real)}</span>` : '');
+      footLeft = `<span class="foot-lbl">STATUS</span><span class="foot-val" style="color:var(--green)">CONCLUÍDO</span>`;
+      footRight = `<span class="foot-lbl">DURAÇÃO</span><span class="foot-val">${real !== null ? formatarDuracaoMin(real) : formatarDuracaoMin(calMin)}</span>`;
     } else {
       metrosPendentes += metros;
       if (minutosRestantes > 0) {
@@ -989,17 +1490,30 @@ function renderizar() {
       if (p.iniciadoEm) {
         decorrido = Math.max(0, (Date.now() - new Date(p.iniciadoEm).getTime()) / 60000);
         restanteItem = Math.max(0, durTotal - decorrido);
+        const pct = durTotal > 0 ? Math.min(100, Math.round((decorrido / durTotal) * 100)) : 100;
+        progressHtml = `
+          <div class="run-progress">
+            <div class="run-progress-head">
+              <span>EM EXECUÇÃO (${formatarDuracaoMin(decorrido)} / ${formatarDuracaoMin(durTotal)})</span>
+              <span>${pct}%</span>
+            </div>
+            <div class="run-bar-bg">
+              <div class="run-bar-fill" style="width:${pct}%"></div>
+            </div>
+          </div>
+        `;
       }
       relogio.setTime(relogio.getTime() + restanteItem * 60000);
       minutosRestantes += restanteItem;
 
-      const durText = impMin > 0 ? `imp ${formatarDuracaoMin(impMin)} + cal ${formatarDuracaoMin(calMin)}` : `cal ${formatarDuracaoMin(calMin)}`;
-      rodape = p.iniciadoEm
-        ? `<span class="running-label">● Rodando (${formatarDuracaoMin(decorrido)})</span><span>${durText}</span>`
-        : `<span>Término: <strong>${hhmm(relogio)}</strong></span><span>${durText}</span>`;
+      const durText = impMin > 0
+        ? `IMP ${formatarDuracaoMin(impMin)} + CAL ${formatarDuracaoMin(calMin)}`
+        : `CAL ${formatarDuracaoMin(calMin)}`;
+
+      footLeft = `<span class="foot-lbl">TÉRMINO</span><span class="foot-val">${hhmm(relogio)}</span>`;
+      footRight = `<span class="foot-lbl">ESTIMADO</span><span class="foot-val">${durText}</span>`;
     }
 
-    // Filtros de exibição
     if (filtroAtual === 'pendentes' && p.concluido) return;
     if (filtroAtual === 'andamento' && (!p.iniciadoEm || p.concluido)) return;
     if (filtroAtual === 'concluidos' && !p.concluido) return;
@@ -1009,62 +1523,114 @@ function renderizar() {
       if (!haystack.includes(busca)) return;
     }
 
+    // Tabela estruturada de composição
+    let compHtml = '';
+    if (p.composicao && p.composicao.length > 0) {
+      const rows = p.composicao.map(c => {
+        const mStr = Number(c.metros || 0).toFixed(1).replace('.0', '').replace('.', ',');
+        return `<tr><td class="comp-td-name">${escapeHtml(c.nome)}</td><td class="comp-td-val">${mStr} m</td></tr>`;
+      }).join('');
+      compHtml = `<table class="comp-table"><tbody>${rows}</tbody></table>`;
+    } else if (p.desc) {
+      compHtml = `<div class="desc-note">${escapeHtml(p.desc)}</div>`;
+    }
+
     const card = document.createElement('div');
-    card.className = `queue-card ${p.concluido ? 'done' : ''}`;
+    card.className = `roll-card ${p.concluido ? 'done' : ''}`;
     card.draggable = !p.concluido;
     card.dataset.index = i;
     card.dataset.prio = p.prioridade;
     card.dataset.status = status;
 
     card.innerHTML = `
-      <div class="card-top">
-        <span class="card-order">#${i + 1}</span>
-        <span class="card-title" title="${escapeHtml(p.nome)}">${escapeHtml(p.nome)}</span>
-        <span class="card-meters">${metros.toFixed(2).replace('.', ',')} m</span>
-      </div>
-      <div class="card-mid">
-        <div class="badge-row">
-          <span class="badge badge-${p.prioridade}">${PRIORIDADE_LABEL[p.prioridade]}</span>
-          ${impressora ? `<span class="badge badge-imp">${escapeHtml(impressora.nome)}</span>` : ''}
-          ${!impresso && !p.concluido ? `<span class="badge badge-noimp">Não Impresso</span>` : ''}
-          ${status === 'andamento' ? `<span class="badge badge-running"><span class="dot-pulse"></span>Em Produção</span>` : ''}
+      <div class="roll-head">
+        <div class="roll-id-group">
+          <span class="roll-seq">#${pad(i + 1)}</span>
+          <span class="roll-title" title="${escapeHtml(p.nome)}">${escapeHtml(p.nome)}</span>
         </div>
-        ${p.desc ? `<div class="card-desc">${escapeHtml(p.desc)}</div>` : ''}
-        <div class="card-actions">
-          <button type="button" class="btn btn-sm ${impresso ? '' : 'btn-primary'}" onclick="toggleImpresso(${i})" ${p.concluido ? 'disabled' : ''} title="${impresso ? 'Marcar Não Impresso' : 'Marcar Impresso'}">
-            🖨️ ${impresso ? 'Impresso' : 'Não Impresso'}
+        <span class="roll-meters">${metros.toFixed(2).replace('.', ',')} m</span>
+      </div>
+
+      <div class="roll-meta">
+        <div class="tag-group">
+          <span class="tag tag-prio-${p.prioridade}">
+            <span class="tag-dot"></span>
+            <span>${PRIORIDADE_LABEL[p.prioridade]}</span>
+          </span>
+          ${impressora ? `<span class="tag tag-printer">PLOTTER ${escapeHtml(impressora.nome)}</span>` : ''}
+          ${status === 'andamento' ? `<span class="tag tag-live">RODANDO</span>` : ''}
+        </div>
+        <span style="color:${impresso ? 'var(--green)' : 'var(--amber)'};font-weight:700;">
+          ${impresso ? 'IMPRESSO' : 'AGUARD. IMPRESSÃO'}
+        </span>
+      </div>
+
+      <div class="roll-body">
+        ${compHtml}
+        ${progressHtml}
+
+        <div class="roll-controls">
+          <button type="button"
+            class="btn btn-sm ${impresso ? 'btn-green-outline' : 'btn-amber-outline'}"
+            onclick="toggleImpresso(${i})"
+            ${p.concluido ? 'disabled' : ''}
+            title="Alternar status de impressão">
+            ${SVG_PRINT}
+            <span>${impresso ? 'Impresso' : 'Não Impresso'}</span>
           </button>
-          <button type="button" class="btn btn-sm ${p.iniciadoEm ? 'btn-primary' : ''}" onclick="toggleIniciar(${i})" ${p.concluido ? 'disabled' : ''}>
-            ${p.iniciadoEm ? '⏸ Pausar' : '▶ Iniciar'}
+
+          <button type="button"
+            class="btn btn-sm ${p.iniciadoEm ? 'btn-teal' : 'btn-brand'}"
+            onclick="toggleIniciar(${i})"
+            ${p.concluido ? 'disabled' : ''}>
+            ${p.iniciadoEm ? SVG_PAUSE : SVG_PLAY}
+            <span>${p.iniciadoEm ? 'Pausar' : 'Iniciar'}</span>
           </button>
-          <button type="button" class="btn btn-sm ${p.concluido ? 'btn-success' : ''}" onclick="toggleConcluido(${i})">
-            ✓ ${p.concluido ? 'Feito' : 'Concluir'}
+
+          <button type="button"
+            class="btn btn-sm ${p.concluido ? 'btn-green' : ''}"
+            onclick="toggleConcluido(${i})">
+            ${SVG_CHECK}
+            <span>${p.concluido ? 'Feito' : 'Concluir'}</span>
           </button>
+
           <span class="spacer"></span>
-          <button type="button" class="btn btn-icon btn-sm" onclick="abrirEditar(${i})" ${p.concluido ? 'disabled' : ''} title="Editar">✎</button>
-          <button type="button" class="btn btn-icon btn-sm" onclick="mover(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="Subir">↑</button>
-          <button type="button" class="btn btn-icon btn-sm" onclick="mover(${i}, 1)" ${i === m.producoes.length - 1 ? 'disabled' : ''} title="Descer">↓</button>
-          <button type="button" class="btn btn-icon btn-sm btn-danger" onclick="remover(${i})" title="Remover">✕</button>
+
+          <button type="button" class="btn btn-sq btn-sm" onclick="abrirEditar(${i})" ${p.concluido ? 'disabled' : ''} title="Editar">${SVG_EDIT}</button>
+          <button type="button" class="btn btn-sq btn-sm" onclick="mover(${i}, -1)" ${i === 0 ? 'disabled' : ''} title="Subir">↑</button>
+          <button type="button" class="btn btn-sq btn-sm" onclick="mover(${i}, 1)" ${i === m.producoes.length - 1 ? 'disabled' : ''} title="Descer">↓</button>
+          <button type="button" class="btn btn-sq btn-sm btn-red-outline" onclick="remover(${i})" title="Remover">✕</button>
         </div>
       </div>
-      <div class="card-foot">${rodape}</div>
+
+      <div class="roll-foot">
+        <div class="foot-cell">${footLeft}</div>
+        <div class="foot-cell">${footRight}</div>
+      </div>
     `;
     list.appendChild(card);
   });
 
   if (list.children.length === 0) {
-    list.innerHTML = `<div class="empty-state">
-      FILA VAZIA // ADICIONE UM ROLO ACIMA OU AGUARDANDO SINCRONIZAÇÃO DO NOTEPAD
+    list.innerHTML = `<div class="empty-box">
+      NENHUMA ORDEM DE ROLO NESTE FILTRO // INSIRA MANUALMENTE ACIMA OU SINCRONIZE PELO NOTEPAD
     </div>`;
   }
 
-  // Atualiza KPIs
   document.getElementById('kpi-metros').textContent = `${metrosPendentes.toFixed(2).replace('.', ',')} m`;
-  document.getElementById('kpi-tempo').textContent = formatarDuracaoMin(minutosRestantes);
-  document.getElementById('kpi-fim').textContent = metrosPendentes > 0 ? hhmm(relogio) : '--:--';
-  document.getElementById('kpi-rolos').textContent = `${cntPend} pend / ${cntConc} conc`;
+  document.getElementById('kpi-metros-sub').textContent = `${metrosConcluidos.toFixed(1).replace('.', ',')} m concluídos`;
 
-  // Contadores dos chips
+  document.getElementById('kpi-tempo').textContent = formatarDuracaoMin(minutosRestantes);
+  document.getElementById('kpi-tempo-sub').textContent = `Velocidade base: ${m.velocidade} m/min • Setup: ${setupMin}m`;
+
+  document.getElementById('kpi-fim').textContent = metrosPendentes > 0 ? hhmm(relogio) : '--:--';
+  document.getElementById('kpi-fim-sub').textContent = temEmAndamento
+    ? `${cntAnd} ordem(ns) em operação`
+    : (m.horaInicio ? `Início programado: ${m.horaInicio}` : 'Baseado no horário atual');
+
+  document.getElementById('kpi-rolos').textContent = `${cntPend} pend / ${cntConc} conc`;
+  document.getElementById('kpi-rolos-sub').textContent = `${m.nome} (${m.producoes.length} total)`;
+
   document.getElementById('cnt-todos').textContent = m.producoes.length;
   document.getElementById('cnt-pend').textContent = cntPend;
   document.getElementById('cnt-and').textContent = cntAnd;
@@ -1073,7 +1639,6 @@ function renderizar() {
   renderizarTabs();
 }
 
-// Formulário Adicionar
 document.getElementById('form-add').addEventListener('submit', e => {
   e.preventDefault();
   maquinaAtiva().producoes.push({
@@ -1085,7 +1650,8 @@ document.getElementById('form-add').addEventListener('submit', e => {
   });
   e.target.reset();
   document.getElementById('add-prio').value = 'media';
-  salvar(); renderizar();
+  salvar();
+  renderizar();
   document.getElementById('add-nome').focus();
 });
 
@@ -1093,18 +1659,21 @@ function toggleIniciar(i) {
   const p = maquinaAtiva().producoes[i];
   if (p.concluido) return;
   p.iniciadoEm = p.iniciadoEm ? null : new Date().toISOString();
-  salvar(); renderizar();
+  salvar();
+  renderizar();
 }
 function toggleImpresso(i) {
   const p = maquinaAtiva().producoes[i];
   p.impresso = !estaImpresso(p);
-  salvar(); renderizar();
+  salvar();
+  renderizar();
 }
 function toggleConcluido(i) {
   const p = maquinaAtiva().producoes[i];
   p.concluido = !p.concluido;
   p.concluidoEm = p.concluido ? new Date().toISOString() : null;
-  salvar(); renderizar();
+  salvar();
+  renderizar();
 }
 
 function abrirEditar(i) {
@@ -1148,60 +1717,65 @@ function salvarEdicao() {
       }
     }
   }
-  salvar(); renderizar(); fecharModal();
+  salvar();
+  renderizar();
+  fecharModal();
 }
 
 function mover(i, dir) {
   const fila = maquinaAtiva().producoes, j = i + dir;
   if (j < 0 || j >= fila.length) return;
   [fila[i], fila[j]] = [fila[j], fila[i]];
-  salvar(); renderizar();
+  salvar();
+  renderizar();
 }
 
 function remover(i) {
-  if (!confirm('Remover esta produção da fila?')) return;
+  if (!confirm('Remover esta ordem da fila?')) return;
   maquinaAtiva().producoes.splice(i, 1);
-  salvar(); renderizar();
+  salvar();
+  renderizar();
 }
 
 function ordenarPorPrioridade() {
   const m = maquinaAtiva();
   const pend = m.producoes.filter(p => !p.concluido).sort((a, b) => PRIORIDADE_PESO[a.prioridade] - PRIORIDADE_PESO[b.prioridade]);
   m.producoes = [...pend, ...m.producoes.filter(p => p.concluido)];
-  salvar(); renderizar();
+  salvar();
+  renderizar();
 }
 
 function limparFila() {
   const m = maquinaAtiva();
   if (m.producoes.length && confirm(`Limpar toda a fila de "${m.nome}"?`)) {
     m.producoes = [];
-    salvar(); renderizar();
+    salvar();
+    renderizar();
   }
 }
 
-// Drag & Drop
 function configurarDragAndDrop() {
   const list = document.getElementById('queue-grid');
   list.addEventListener('dragstart', e => {
-    const card = e.target.closest('.queue-card');
+    const card = e.target.closest('.roll-card');
     if (!card || card.getAttribute('draggable') !== 'true') return;
     dragIndex = +card.dataset.index;
     card.classList.add('dragging');
   });
   list.addEventListener('dragend', e => {
-    e.target.closest('.queue-card')?.classList.remove('dragging');
+    e.target.closest('.roll-card')?.classList.remove('dragging');
     list.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
     dragIndex = null;
   });
   list.addEventListener('dragover', e => {
-    const card = e.target.closest('.queue-card');
+    const card = e.target.closest('.roll-card');
     if (!card || dragIndex === null) return;
     e.preventDefault();
     list.querySelectorAll('.drag-over').forEach(c => c.classList.remove('drag-over'));
     if (+card.dataset.index !== dragIndex) card.classList.add('drag-over');
   });
   list.addEventListener('drop', e => {
-    const card = e.target.closest('.queue-card');
+    const card = e.target.closest('.roll-card');
     if (!card || dragIndex === null) return;
     e.preventDefault();
     const dest = +card.dataset.index;
@@ -1209,31 +1783,31 @@ function configurarDragAndDrop() {
     const fila = maquinaAtiva().producoes;
     const [item] = fila.splice(dragIndex, 1);
     fila.splice(dest, 0, item);
-    salvar(); renderizar();
+    salvar();
+    renderizar();
   });
 }
 
-// WebSocket do Notepad
 function conectarNotepad() {
   let url = `ws://${window.location.hostname || 'localhost'}:__WS_PORT__`;
   try { url = JSON.parse(localStorage.getItem(WS_URL_KEY))?.url || url; } catch (e) {}
 
   const st = document.getElementById('ws-status');
   const txt = document.getElementById('ws-text');
-  if (txt) txt.textContent = 'Notepad: conectando...';
-  if (st) st.className = 'ws-status';
+  if (txt) txt.textContent = 'NOTEPAD: CONECTANDO';
+  if (st) st.className = 'ws-indicator';
 
   if (notepadSocket) { notepadSocket.onclose = null; try { notepadSocket.close(); } catch (e) {} }
   clearTimeout(notepadReconnectTimer);
 
   try { notepadSocket = new WebSocket(url); } catch (e) {
-    if (txt) txt.textContent = 'Notepad: URL inválida';
+    if (txt) txt.textContent = 'NOTEPAD: ERRO URL';
     return;
   }
 
   notepadSocket.onopen = () => {
-    if (txt) txt.textContent = 'Notepad: conectado';
-    if (st) st.className = 'ws-status connected';
+    if (txt) txt.textContent = 'NOTEPAD: ONLINE';
+    if (st) st.className = 'ws-indicator connected';
     notepadSocket.send(JSON.stringify({ type: 'get_state' }));
   };
   notepadSocket.onmessage = ev => {
@@ -1246,8 +1820,8 @@ function conectarNotepad() {
     } catch (e) {}
   };
   notepadSocket.onclose = () => {
-    if (txt) txt.textContent = 'Notepad: reconectando...';
-    if (st) st.className = 'ws-status';
+    if (txt) txt.textContent = 'NOTEPAD: RECONECTANDO';
+    if (st) st.className = 'ws-indicator';
     notepadReconnectTimer = setTimeout(conectarNotepad, 2500);
   };
 }
@@ -1390,7 +1964,6 @@ function sincronizarComNotepad(texto) {
   }
 }
 
-// Atalho de teclado 'N' para novo rolo e 'Esc' para fechar modais
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') fecharModal();
   if (e.key === 'n' || e.key === 'N') {
