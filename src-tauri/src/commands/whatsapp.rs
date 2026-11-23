@@ -101,3 +101,8 @@ pub async fn whatsapp_iniciar(
 pub fn whatsapp_parar(app: AppHandle, srv: State<'_, ZapService>) -> ZapStatus {
     srv.stop(&app)
 }
+
+#[tauri::command]
+pub fn whatsapp_injetar_teste(app: AppHandle, srv: State<'_, ZapService>) -> ZapMensagem {
+    srv.injetar_teste(&app)
+}

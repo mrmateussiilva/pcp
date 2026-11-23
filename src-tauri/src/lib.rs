@@ -152,6 +152,7 @@ pub fn run() {
             commands::whatsapp::whatsapp_limpar,
             commands::whatsapp::whatsapp_iniciar,
             commands::whatsapp::whatsapp_parar,
+            commands::whatsapp::whatsapp_injetar_teste,
             commands::consumo::consumo_analisar,
             commands::consumo::consumo_get_pasta,
             commands::consumo::consumo_get_config,
