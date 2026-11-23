@@ -95,8 +95,71 @@ npm.cmd install
 npm.cmd run tauri dev
 ```
 
-Para gerar o executável/instalador de produção:
+Para gerar o executável/instalador de produção localmente:
 ```bash
 npm run tauri build
 # (no Windows PowerShell: npm.cmd run tauri build)
 ```
+
+---
+
+## Ícones
+
+O ícone-fonte é vetorial: [`src-tauri/icons/app-icon.svg`](src-tauri/icons/app-icon.svg) (marca de registro de impressão + marcas de corte). Após editá-lo, regenere todos os tamanhos (`.ico`, `.icns`, PNGs e tiles do Windows):
+
+```bash
+npm run icons
+```
+
+O favicon da interface fica em `public/favicon.svg`.
+
+---
+
+## Deploy (GitHub Actions → Windows)
+
+| Workflow | Gatilho | O que faz |
+|---|---|---|
+| [`ci.yml`](.github/workflows/ci.yml) | push/PR na `main` | `npm run build` + `cargo check --locked` em **windows-latest** (compila o código `#[cfg(windows)]`, ex.: WinRT PDF da Shopee). |
+| [`release.yml`](.github/workflows/release.yml) | tag `v*` (ou manual) | Gera o instalador **NSIS** (`*-setup.exe`) e o **MSI** e publica no **GitHub Releases**. Disparo manual apenas anexa os instaladores como artefato do job. |
+
+### Publicando uma nova versão (git tag)
+
+**A tag é a fonte da verdade da versão.** O workflow lê `vX.Y.Z` da tag e aplica em `package.json`, `tauri.conf.json`, `Cargo.toml` e `Cargo.lock` antes de compilar — então o nome do instalador, a versão em "Aplicativos instalados" e a release batem sempre com a tag.
+
+```bash
+# Opção A — só a tag (mais rápido)
+git tag v0.2.0
+git push origin v0.2.0
+
+# Opção B — também grava a versão nos arquivos do repo (recomendado p/ histórico)
+npm version minor        # 0.1.0 -> 0.2.0: atualiza package.json + Cargo.toml/lock,
+                         # cria commit "chore(release): v0.2.0" e a tag v0.2.0
+git push --follow-tags   # envia commit + tag
+```
+
+| Tag | Resultado |
+|---|---|
+| `v1.2.0` | Release estável |
+| `v1.3.0-1`, `v1.3.0-2` | **Pré-release** (marcada no GitHub; só sufixo numérico — limitação do MSI) |
+| `v1.2`, `1.2.0`, `v1.2.0-beta` | Rejeitada pelo workflow |
+
+Versionamento semântico: `patch` (correções) · `minor` (funcionalidades novas) · `major` (mudanças incompatíveis, ex.: formato do `config.json`).
+
+**Refazer uma release** (ex.: build falhou):
+```bash
+git tag -d v0.2.0 && git push origin :refs/tags/v0.2.0   # apaga tag local e remota
+# apague também a release no GitHub, corrija, e crie a tag de novo
+```
+
+Em ~10–15 min a release aparece em **GitHub → Releases** com:
+- `PCP.Central_X.Y.Z_x64-setup.exe` — instalador recomendado (por usuário, **não exige administrador**, idioma pt-BR, instala o WebView2 se faltar).
+- `PCP.Central_X.Y.Z_x64_pt-BR.msi` — para implantação via GPO.
+
+### Instalação nas máquinas
+
+- Rode o `-setup.exe`. Atualizar = instalar a versão nova por cima; `config.json` e notas (em `%APPDATA%\com.pcp.central\`) são preservados.
+- Na primeira execução o Windows Defender Firewall pergunta sobre acesso à rede: **permita em "Redes privadas"** — necessário para Notepad (`8765/8766`), Calandragem e Webhook do WhatsApp (`5050`) serem acessados por outros dispositivos.
+- O app é **instância única**: abrir de novo apenas traz a janela existente para frente (evita conflito de portas e watchers duplicados).
+
+> [!NOTE]
+> O instalador não é assinado digitalmente (code signing). O SmartScreen pode exibir "O Windows protegeu o computador" → **Mais informações → Executar assim mesmo**.
