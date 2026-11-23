@@ -1,6 +1,6 @@
 [package]
 name = "pcp-tauri"
-version = "0.4.0"
+version = "0.4.1"
 description = "PCP Central — central de produção para sublimação"
 authors = ["Mateus Silva"]
 edition = "2024"

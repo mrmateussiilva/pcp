@@ -1,5 +1,5 @@
 use crate::core::imaging::{blit_rgb_fast, resize_rgb_simd, wait_until_stable};
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeDelta};
+use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeDelta, Timelike};
 use image::codecs::jpeg::JpegEncoder;
 use image::{DynamicImage, GenericImageView, RgbImage};
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
@@ -220,65 +220,13 @@ impl ShopeeService {
     }
 }
 
-static RE_PDF: OnceLock<Regex> = OnceLock::new();
+static RE_PDF_12: OnceLock<Regex> = OnceLock::new();
+static RE_PDF_10: OnceLock<Regex> = OnceLock::new();
 static RE_IMG_A: OnceLock<Regex> = OnceLock::new();
 static RE_IMG_B: OnceLock<Regex> = OnceLock::new();
+static RE_COPY_SUFFIX: OnceLock<Regex> = OnceLock::new();
 
-fn chave_pdf(arq: &Path) -> Option<NaiveDateTime> {
-    let re = RE_PDF.get_or_init(|| {
-        Regex::new(r"(\d{2})[-_.]?(\d{2})[-_.]?(\d{4})[-_.]?(\d{2})[-_.]?(\d{2})").unwrap()
-    });
-    let stem = arq.file_stem()?.to_str()?;
-    let caps = re.captures(stem)?;
-    let d: u32 = caps[1].parse().ok()?;
-    let m: u32 = caps[2].parse().ok()?;
-    let y: i32 = caps[3].parse().ok()?;
-    let hh: u32 = caps[4].parse().ok()?;
-    let mm: u32 = caps[5].parse().ok()?;
-    NaiveDate::from_ymd_opt(y, m, d)?.and_hms_opt(hh, mm, 0)
-}
-
-fn chave_img(arq: &Path) -> Option<NaiveDateTime> {
-    let stem = arq.file_stem()?.to_str()?;
-
-    // Formato WhatsApp padrão (ex: "WhatsApp Image 2026-11-22 at 15.30.25")
-    let re_a = RE_IMG_A.get_or_init(|| {
-        Regex::new(r"(\d{4})-(\d{2})-(\d{2})[ _a-zA-Z]+(\d{2})[.:_-](\d{2})[.:_-](\d{2})")
-            .unwrap()
-    });
-    if let Some(caps) = re_a.captures(stem) {
-        let y: i32 = caps[1].parse().ok()?;
-        let m: u32 = caps[2].parse().ok()?;
-        let d: u32 = caps[3].parse().ok()?;
-        let hh: u32 = caps[4].parse().ok()?;
-        let mm: u32 = caps[5].parse().ok()?;
-        let ss: u32 = caps[6].parse().ok()?;
-        if let Some(dt) =
-            NaiveDate::from_ymd_opt(y, m, d).and_then(|date| date.and_hms_opt(hh, mm, ss))
-        {
-            return Some(dt);
-        }
-    }
-
-    // Formato compacto (ex: "20261122_153025" ou "2026-11-22_153025")
-    let re_b = RE_IMG_B.get_or_init(|| {
-        Regex::new(r"(\d{4})[-_]?(\d{2})[-_]?(\d{2})[-_](\d{2})(\d{2})(\d{2})").unwrap()
-    });
-    if let Some(caps) = re_b.captures(stem) {
-        let y: i32 = caps[1].parse().ok()?;
-        let m: u32 = caps[2].parse().ok()?;
-        let d: u32 = caps[3].parse().ok()?;
-        let hh: u32 = caps[4].parse().ok()?;
-        let mm: u32 = caps[5].parse().ok()?;
-        let ss: u32 = caps[6].parse().ok()?;
-        if let Some(dt) =
-            NaiveDate::from_ymd_opt(y, m, d).and_then(|date| date.and_hms_opt(hh, mm, ss))
-        {
-            return Some(dt);
-        }
-    }
-
-    // Fallback: carimbo de modificação do arquivo no disco
+fn file_mtime_naive(arq: &Path) -> Option<NaiveDateTime> {
     fs::metadata(arq)
         .ok()?
         .modified()
@@ -290,6 +238,211 @@ fn chave_img(arq: &Path) -> Option<NaiveDateTime> {
         })
 }
 
+fn file_mtime_ms(arq: &Path) -> u64 {
+    fs::metadata(arq)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn strip_copy_suffix(stem: &str) -> &str {
+    let re = RE_COPY_SUFFIX.get_or_init(|| Regex::new(r"\s*\(\d+\)\s*$").unwrap());
+    if let Some(m) = re.find(stem) {
+        &stem[..m.start()]
+    } else {
+        stem.trim()
+    }
+}
+
+/// Extrai data/hora do nome do PDF suportando:
+/// - `DDMMYYYYHHMM` (ex: `231120260705.pdf` -> 23/11/2026 07:05)
+/// - `HHMMDDMMYYYY` (ex: `070723112026.pdf` -> 23/11/2026 07:07)
+/// - `YYYYMMDDHHMM` (ex: `202611230705.pdf` -> 23/11/2026 07:05)
+/// - `DDMMHHMMYYYY` (ex: `231107052026.pdf` -> 23/11/2026 07:05)
+/// - Variantes de 10 dígitos com ano de 2 dígitos (`DDMMYYHHMM` e `HHMMDDMMYY`)
+pub fn parse_pdf_stem_datetime(stem_raw: &str, ref_date: NaiveDate) -> Option<NaiveDateTime> {
+    let clean = strip_copy_suffix(stem_raw);
+
+    let re12 = RE_PDF_12.get_or_init(|| {
+        Regex::new(
+            r"(\d{2})[-_.\s]?(\d{2})[-_.\s]?(\d{2})[-_.\s]?(\d{2})[-_.\s]?(\d{2})[-_.\s]?(\d{2})",
+        )
+        .unwrap()
+    });
+
+    if let Some(caps) = re12.captures(clean) {
+        let p0: u32 = caps[1].parse().ok()?;
+        let p1: u32 = caps[2].parse().ok()?;
+        let p2: u32 = caps[3].parse().ok()?;
+        let p3: u32 = caps[4].parse().ok()?;
+        let p4: u32 = caps[5].parse().ok()?;
+        let p5: u32 = caps[6].parse().ok()?;
+
+        let mut candidatos: Vec<(u8, NaiveDateTime)> = Vec::new();
+
+        // 1) DDMMYYYYHHMM (padrão principal: 231120260705)
+        let y_mid = (p2 * 100 + p3) as i32;
+        if (2020..=2035).contains(&y_mid) {
+            if let Some(dt) =
+                NaiveDate::from_ymd_opt(y_mid, p1, p0).and_then(|d| d.and_hms_opt(p4, p5, 0))
+            {
+                candidatos.push((0, dt));
+            }
+        }
+
+        // 2) HHMMDDMMYYYY (padrão invertido comum no grupo: 070723112026 -> 07:07 23/11/2026)
+        let y_end = (p4 * 100 + p5) as i32;
+        if (2020..=2035).contains(&y_end) {
+            if let Some(dt) =
+                NaiveDate::from_ymd_opt(y_end, p3, p2).and_then(|d| d.and_hms_opt(p0, p1, 0))
+            {
+                candidatos.push((1, dt));
+            }
+            // 3) DDMMHHMMYYYY
+            if let Some(dt) =
+                NaiveDate::from_ymd_opt(y_end, p1, p0).and_then(|d| d.and_hms_opt(p2, p3, 0))
+            {
+                candidatos.push((3, dt));
+            }
+        }
+
+        // 4) YYYYMMDDHHMM (202611230705)
+        let y_start = (p0 * 100 + p1) as i32;
+        if (2020..=2035).contains(&y_start) {
+            if let Some(dt) =
+                NaiveDate::from_ymd_opt(y_start, p2, p3).and_then(|d| d.and_hms_opt(p4, p5, 0))
+            {
+                candidatos.push((2, dt));
+            }
+        }
+
+        if !candidatos.is_empty() {
+            candidatos.sort_by_key(|(prio, dt)| {
+                let diff_days = (dt.date() - ref_date).num_days().abs();
+                (diff_days, *prio)
+            });
+            return Some(candidatos[0].1);
+        }
+    }
+
+    // Variantes de 10 dígitos (ano com 2 dígitos, ex: 2311260705 ou 0707231126)
+    let re10 = RE_PDF_10.get_or_init(|| {
+        Regex::new(r"^(\d{2})[-_.\s]?(\d{2})[-_.\s]?(\d{2})[-_.\s]?(\d{2})[-_.\s]?(\d{2})$")
+            .unwrap()
+    });
+    if let Some(caps) = re10.captures(clean) {
+        let p0: u32 = caps[1].parse().ok()?;
+        let p1: u32 = caps[2].parse().ok()?;
+        let p2: u32 = caps[3].parse().ok()?;
+        let p3: u32 = caps[4].parse().ok()?;
+        let p4: u32 = caps[5].parse().ok()?;
+
+        let mut candidatos: Vec<(u8, NaiveDateTime)> = Vec::new();
+        let y_mid = 2000 + p2 as i32;
+        if (2020..=2035).contains(&y_mid) {
+            if let Some(dt) =
+                NaiveDate::from_ymd_opt(y_mid, p1, p0).and_then(|d| d.and_hms_opt(p3, p4, 0))
+            {
+                candidatos.push((0, dt));
+            }
+        }
+        let y_end = 2000 + p4 as i32;
+        if (2020..=2035).contains(&y_end) {
+            if let Some(dt) =
+                NaiveDate::from_ymd_opt(y_end, p3, p2).and_then(|d| d.and_hms_opt(p0, p1, 0))
+            {
+                candidatos.push((1, dt));
+            }
+        }
+        if !candidatos.is_empty() {
+            candidatos.sort_by_key(|(prio, dt)| {
+                let diff_days = (dt.date() - ref_date).num_days().abs();
+                (diff_days, *prio)
+            });
+            return Some(candidatos[0].1);
+        }
+    }
+
+    None
+}
+
+fn chave_pdf(arq: &Path) -> Option<NaiveDateTime> {
+    let stem = arq.file_stem()?.to_str()?;
+    let mtime = file_mtime_naive(arq);
+    let ref_date = mtime
+        .map(|dt| dt.date())
+        .unwrap_or_else(|| Local::now().date_naive());
+
+    if let Some(dt) = parse_pdf_stem_datetime(stem, ref_date) {
+        return Some(dt);
+    }
+
+    // Fallback: data de modificação do PDF no disco (truncada para o minuto)
+    mtime.and_then(|dt| {
+        dt.date()
+            .and_hms_opt(dt.time().hour(), dt.time().minute(), 0)
+    })
+}
+
+pub fn parse_img_stem_datetime(stem_raw: &str, ref_date: NaiveDate) -> Option<NaiveDateTime> {
+    // Formato WhatsApp padrão (ex: "WhatsApp Image 2026-11-22 at 15.30.25" ou com "(1)")
+    let re_a = RE_IMG_A.get_or_init(|| {
+        Regex::new(r"(\d{4})-(\d{2})-(\d{2})[ _a-zA-Z]+(\d{1,2})[.:_-](\d{2})[.:_-](\d{2})")
+            .unwrap()
+    });
+    if let Some(caps) = re_a.captures(stem_raw) {
+        let y: i32 = caps[1].parse().ok()?;
+        let m: u32 = caps[2].parse().ok()?;
+        let d: u32 = caps[3].parse().ok()?;
+        let hh: u32 = caps[4].parse().ok()?;
+        let mm: u32 = caps[5].parse().ok()?;
+        let ss: u32 = caps[6].parse().ok()?;
+        if let Some(dt) =
+            NaiveDate::from_ymd_opt(y, m, d).and_then(|date| date.and_hms_opt(hh, mm, ss))
+        {
+            return Some(dt);
+        }
+    }
+
+    // Formato compacto (ex: "20261122_153025" ou "IMG_20261122_153025")
+    let re_b = RE_IMG_B.get_or_init(|| {
+        Regex::new(r"(\d{4})[-_]?(\d{2})[-_]?(\d{2})[-_](\d{2})(\d{2})(\d{2})").unwrap()
+    });
+    if let Some(caps) = re_b.captures(stem_raw) {
+        let y: i32 = caps[1].parse().ok()?;
+        let m: u32 = caps[2].parse().ok()?;
+        let d: u32 = caps[3].parse().ok()?;
+        let hh: u32 = caps[4].parse().ok()?;
+        let mm: u32 = caps[5].parse().ok()?;
+        let ss: u32 = caps[6].parse().ok()?;
+        if let Some(dt) =
+            NaiveDate::from_ymd_opt(y, m, d).and_then(|date| date.and_hms_opt(hh, mm, ss))
+        {
+            return Some(dt);
+        }
+    }
+
+    // Caso a imagem tenha sido renomeada no padrão DDMMYYYYHHMM ou HHMMDDMMYYYY
+    parse_pdf_stem_datetime(stem_raw, ref_date)
+}
+
+fn chave_img(arq: &Path) -> Option<NaiveDateTime> {
+    let stem = arq.file_stem()?.to_str()?;
+    let mtime = file_mtime_naive(arq);
+    let ref_date = mtime
+        .map(|dt| dt.date())
+        .unwrap_or_else(|| Local::now().date_naive());
+
+    if let Some(dt) = parse_img_stem_datetime(stem, ref_date) {
+        return Some(dt);
+    }
+
+    mtime
+}
+
+/// Distância bruta em segundos entre o horário da foto e o minuto `[hora_pdf, hora_pdf + 59s]`.
 fn distancia_secs(hora_img: NaiveDateTime, hora_pdf: NaiveDateTime) -> i64 {
     if hora_img < hora_pdf {
         (hora_pdf - hora_img).num_seconds()
@@ -303,27 +456,185 @@ fn distancia_secs(hora_img: NaiveDateTime, hora_pdf: NaiveDateTime) -> i64 {
     }
 }
 
+/// Custo direcional para o pareamento ótimo (DP):
+/// No fluxo do grupo do WhatsApp, o PDF é enviado primeiro e a(s) foto(s) logo em seguida
+/// (mesmo minuto ou nos minutos seguintes). Fotos anteriores ao minuto do PDF recebem
+/// penalidade direcional para evitar que um PDF novo "roube" a foto do PDF do minuto anterior.
+fn custo_pareamento_direcional(hora_img: NaiveDateTime, hora_pdf: NaiveDateTime) -> i64 {
+    if hora_img < hora_pdf {
+        let antes = (hora_pdf - hora_img).num_seconds();
+        120 + antes * 4
+    } else {
+        let fim = hora_pdf + TimeDelta::seconds(59);
+        if hora_img <= fim {
+            (hora_img - hora_pdf).num_seconds() / 2
+        } else {
+            30 + (hora_img - fim).num_seconds()
+        }
+    }
+}
+
+/// Chave de ordenação natural para nomes de arquivos (ex: `(1)` < `(2)` < `(10)`).
+fn natural_sort_key(p: &Path) -> (String, u32) {
+    let stem = p
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let re = RE_COPY_SUFFIX.get_or_init(|| Regex::new(r"\s*\(\d+\)\s*$").unwrap());
+    if let Some(m) = re.find(&stem) {
+        let base = stem[..m.start()].to_string();
+        let digits: u32 = stem[m.start()..]
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .collect::<String>()
+            .parse()
+            .unwrap_or(0);
+        (base, digits)
+    } else {
+        (stem, 0)
+    }
+}
+
+/// Pareamento monotônico ótimo via Programação Dinâmica:
+/// - Prioridade 1: Maximizar a quantidade de PDFs que recebem ao menos 1 foto compatível
+///   (impede que um PDF vizinho acumule 2 fotos e deixe outro PDF sem nenhuma).
+/// - Prioridade 2: Maximizar a quantidade de fotos compatíveis atribuídas
+///   (permite que um PDF receba 2, 3+ fotos quando pertencem ao mesmo pedido).
+/// - Prioridade 3: Minimizar o custo direcional de horário entre cada foto e seu PDF.
+pub fn parear_monotonic_dp(
+    pdf_times: &[NaiveDateTime],
+    img_times: &[NaiveDateTime],
+    limite_secs: i64,
+) -> (Vec<Vec<usize>>, Vec<usize>) {
+    let k = pdf_times.len();
+    let m = img_times.len();
+    if k == 0 {
+        return (Vec::new(), (0..m).collect());
+    }
+    if m == 0 {
+        return (vec![Vec::new(); k], Vec::new());
+    }
+
+    const INF: i64 = i64::MAX / 4;
+    const PENALIDADE_PDF_VAZIO: i64 = 1_000_000;
+    const PENALIDADE_IMG_ORFA: i64 = 50_000;
+    const CUSTO_FOTO_EXTRA: i64 = 300;
+
+    let stride_i = 2;
+    let stride_j = (m + 1) * stride_i;
+    let total_states = (k + 1) * stride_j;
+
+    let mut dp = vec![INF; total_states];
+    let mut choice = vec![0u8; total_states];
+    // choice: 1 = avança PDF (j+1, i, 0), 2 = atribui img i ao PDF j (j, i+1, 1), 3 = pula img i como órfã (j, i+1, has)
+
+    let idx = |j: usize, i: usize, has: usize| -> usize { j * stride_j + i * stride_i + has };
+
+    dp[idx(k, m, 0)] = 0;
+    dp[idx(k, m, 1)] = 0;
+
+    for i in (0..m).rev() {
+        for has in 0..=1 {
+            dp[idx(k, i, has)] = dp[idx(k, i + 1, 0)] + PENALIDADE_IMG_ORFA;
+            choice[idx(k, i, has)] = 3;
+        }
+    }
+
+    for j in (0..k).rev() {
+        for i in (0..=m).rev() {
+            // Calculamos has=1 primeiro pois has=0 pode transicionar para (j, i+1, 1), que já está resolvido
+            for &has in &[1usize, 0usize] {
+                let mut best_cost = INF;
+                let mut best_act = 1u8;
+
+                // Ação 1: Encerrar PDF j e ir para j + 1
+                let pen_pdf = if has == 1 { 0 } else { PENALIDADE_PDF_VAZIO };
+                let c1 = dp[idx(j + 1, i, 0)].saturating_add(pen_pdf);
+                if c1 < best_cost {
+                    best_cost = c1;
+                    best_act = 1;
+                }
+
+                if i < m {
+                    // Ação 2: Atribuir imagem i ao PDF j (se estiver dentro do limite de tolerância)
+                    let dist = distancia_secs(img_times[i], pdf_times[j]);
+                    if dist <= limite_secs {
+                        let extra = if has == 1 { CUSTO_FOTO_EXTRA } else { 0 };
+                        let c_pair = custo_pareamento_direcional(img_times[i], pdf_times[j]) + extra;
+                        let c2 = dp[idx(j, i + 1, 1)].saturating_add(c_pair);
+                        if c2 < best_cost {
+                            best_cost = c2;
+                            best_act = 2;
+                        }
+                    }
+
+                    // Ação 3: Pular imagem i como órfã
+                    let c3 = dp[idx(j, i + 1, has)].saturating_add(PENALIDADE_IMG_ORFA);
+                    if c3 < best_cost {
+                        best_cost = c3;
+                        best_act = 3;
+                    }
+                }
+
+                dp[idx(j, i, has)] = best_cost;
+                choice[idx(j, i, has)] = best_act;
+            }
+        }
+    }
+
+    let mut atribuicoes: Vec<Vec<usize>> = vec![Vec::new(); k];
+    let mut orfas: Vec<usize> = Vec::new();
+    let mut j = 0usize;
+    let mut i = 0usize;
+    let mut has = 0usize;
+
+    while j < k || i < m {
+        if j == k {
+            orfas.push(i);
+            i += 1;
+            continue;
+        }
+        match choice[idx(j, i, has)] {
+            1 => {
+                j += 1;
+                has = 0;
+            }
+            2 => {
+                atribuicoes[j].push(i);
+                i += 1;
+                has = 1;
+            }
+            _ => {
+                orfas.push(i);
+                i += 1;
+            }
+        }
+    }
+
+    (atribuicoes, orfas)
+}
+
 fn ler_pasta(
     pasta: &Path,
     tolerancia_min: u64,
 ) -> Result<
     (
         Vec<(NaiveDateTime, PathBuf)>,
-        HashMap<NaiveDateTime, Vec<PathBuf>>,
+        Vec<Vec<PathBuf>>,
         Vec<PathBuf>,
     ),
     String,
 > {
-    let mut entries: Vec<PathBuf> = fs::read_dir(pasta)
+    let entries: Vec<PathBuf> = fs::read_dir(pasta)
         .map_err(|e| format!("Erro ao ler pasta: {e}"))?
         .flatten()
         .map(|e| e.path())
         .filter(|p| p.is_file())
         .collect();
-    entries.sort();
 
-    let mut pdfs: Vec<(NaiveDateTime, PathBuf)> = Vec::new();
-    let mut soltas: Vec<(NaiveDateTime, PathBuf)> = Vec::new();
+    let mut pdfs_raw: Vec<(NaiveDateTime, u64, PathBuf)> = Vec::new();
+    let mut soltas_raw: Vec<(NaiveDateTime, u64, PathBuf)> = Vec::new();
 
     for arq in entries {
         let ext = arq
@@ -333,36 +644,93 @@ fn ler_pasta(
             .to_lowercase();
         if ext == "pdf" {
             if let Some(chave) = chave_pdf(&arq) {
-                pdfs.push((chave, arq));
+                pdfs_raw.push((chave, file_mtime_ms(&arq), arq));
             }
         } else if matches!(ext.as_str(), "jpeg" | "jpg" | "png") {
             if let Some(hora) = chave_img(&arq) {
-                soltas.push((hora, arq));
+                soltas_raw.push((hora, file_mtime_ms(&arq), arq));
             }
         }
     }
 
-    pdfs.sort_by_key(|(k, _)| *k);
+    pdfs_raw.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| natural_sort_key(&a.2).cmp(&natural_sort_key(&b.2)))
+            .then_with(|| a.1.cmp(&b.1))
+    });
 
-    let mut imagens: HashMap<NaiveDateTime, Vec<PathBuf>> = HashMap::new();
-    let mut sobrando: Vec<PathBuf> = Vec::new();
-    let limite = (tolerancia_min as i64) * 60;
+    soltas_raw.sort_by(|a, b| {
+        a.0.cmp(&b.0)
+            .then_with(|| natural_sort_key(&a.2).cmp(&natural_sort_key(&b.2)))
+            .then_with(|| a.1.cmp(&b.1))
+    });
 
-    for (hora, arq) in soltas {
-        let melhor = pdfs
-            .iter()
-            .map(|(p_hora, _)| (distancia_secs(hora, *p_hora), *p_hora))
-            .min();
-        if let Some((dist, p_hora)) = melhor {
-            if dist <= limite {
-                imagens.entry(p_hora).or_default().push(arq);
-                continue;
+    let pdf_times: Vec<NaiveDateTime> = pdfs_raw.iter().map(|(t, _, _)| *t).collect();
+    let img_times: Vec<NaiveDateTime> = soltas_raw.iter().map(|(t, _, _)| *t).collect();
+    let limite = (tolerancia_min.max(1) as i64) * 60;
+
+    // 1ª Passada: pareamento monotônico ótimo dentro da tolerância configurada
+    let (mut atrib_idx, mut orfas_idx) = parear_monotonic_dp(&pdf_times, &img_times, limite);
+
+    // 2ª Passada (Fallback Inteligente para sobras):
+    // Se sobraram PDFs sem imagem E fotos órfãs na pasta:
+    // - Se só existe 1 PDF na pasta inteira e ele ficou sem foto, casa todas as fotos da pasta com ele.
+    // - Caso contrário, tenta casar apenas os PDFs sem imagem restantes com as fotos órfãs restantes
+    //   usando uma janela ampliada de mesmo turno (até 30 min, ou mesmo dia se sobrou exatamente 1 PDF e 1 foto).
+    let pdfs_sem_img: Vec<usize> = (0..pdfs_raw.len())
+        .filter(|&j| atrib_idx[j].is_empty())
+        .collect();
+
+    if !pdfs_sem_img.is_empty() && !orfas_idx.is_empty() {
+        if pdfs_raw.len() == 1 {
+            atrib_idx[0] = orfas_idx.clone();
+            orfas_idx.clear();
+        } else {
+            let sub_pdf_times: Vec<NaiveDateTime> =
+                pdfs_sem_img.iter().map(|&j| pdf_times[j]).collect();
+            let sub_img_times: Vec<NaiveDateTime> =
+                orfas_idx.iter().map(|&i| img_times[i]).collect();
+
+            let janela_fallback = if pdfs_sem_img.len() == 1 && orfas_idx.len() == 1 {
+                12 * 3600 // 1 PDF restante + 1 foto restante no mesmo dia: casa automaticamente
+            } else {
+                (tolerancia_min.max(30) as i64) * 60 // até 30 minutos para sobras isoladas
+            };
+
+            let (sub_atrib, sub_orfas) =
+                parear_monotonic_dp(&sub_pdf_times, &sub_img_times, janela_fallback);
+
+            for (sub_j, img_sub_list) in sub_atrib.into_iter().enumerate() {
+                let real_pdf_j = pdfs_sem_img[sub_j];
+                for sub_i in img_sub_list {
+                    atrib_idx[real_pdf_j].push(orfas_idx[sub_i]);
+                }
             }
+            orfas_idx = sub_orfas.into_iter().map(|sub_i| orfas_idx[sub_i]).collect();
         }
-        sobrando.push(arq);
     }
 
-    Ok((pdfs, imagens, sobrando))
+    let pdfs: Vec<(NaiveDateTime, PathBuf)> = pdfs_raw
+        .into_iter()
+        .map(|(t, _, p)| (t, p))
+        .collect();
+
+    let imagens_por_pdf: Vec<Vec<PathBuf>> = atrib_idx
+        .into_iter()
+        .map(|indices| {
+            indices
+                .into_iter()
+                .map(|i| soltas_raw[i].2.clone())
+                .collect()
+        })
+        .collect();
+
+    let sobrando: Vec<PathBuf> = orfas_idx
+        .into_iter()
+        .map(|i| soltas_raw[i].2.clone())
+        .collect();
+
+    Ok((pdfs, imagens_por_pdf, sobrando))
 }
 
 fn assinatura(arquivos: &[PathBuf]) -> Result<Vec<(String, u64, u64)>, String> {
@@ -624,9 +992,8 @@ fn processar_fichas_passo(
     let mut pendentes = 0usize;
     let mut sem_imagem_nomes = Vec::new();
 
-    for (chave, pdf) in &pdfs {
-        let mut imgs = imagens.get(chave).cloned().unwrap_or_default();
-        imgs.sort();
+    for (idx, (_chave, pdf)) in pdfs.iter().enumerate() {
+        let imgs = imagens.get(idx).cloned().unwrap_or_default();
         if imgs.is_empty() {
             sem_imagem_nomes.push(
                 pdf.file_name()
@@ -878,7 +1245,7 @@ pub fn obter_diagnostico(pasta: &Path, tolerancia_min: u64) -> Result<ShopeeDiag
 
     let saida = pasta.join(PASTA_SAIDA);
 
-    for (hora, pdf) in &pdfs {
+    for (idx, (hora, pdf)) in pdfs.iter().enumerate() {
         let pdf_nome = pdf
             .file_name()
             .unwrap_or_default()
@@ -891,7 +1258,7 @@ pub fn obter_diagnostico(pasta: &Path, tolerancia_min: u64) -> Result<ShopeeDiag
             .into_owned();
         let destino_jpg = saida.join(format!("{pdf_stem}.jpg"));
 
-        let imgs = imagens.get(hora).cloned().unwrap_or_default();
+        let imgs = imagens.get(idx).cloned().unwrap_or_default();
         if imgs.is_empty() {
             sem_imagem.push(pdf_nome);
         } else {
@@ -1032,4 +1399,84 @@ pub fn carregar_miniatura_base64(caminho_jpeg: &Path) -> Result<String, String> 
     use base64::Engine;
     let b64 = STANDARD.encode(buf.into_inner());
     Ok(format!("data:image/jpeg;base64,{b64}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dt(y: i32, m: u32, d: u32, hh: u32, mm: u32, ss: u32) -> NaiveDateTime {
+        NaiveDate::from_ymd_opt(y, m, d)
+            .unwrap()
+            .and_hms_opt(hh, mm, ss)
+            .unwrap()
+    }
+
+    #[test]
+    fn test_parse_pdf_stem_formats() {
+        let ref_date = NaiveDate::from_ymd_opt(2026, 11, 23).unwrap();
+
+        // Print 1: 231120260705.pdf (DDMMYYYYHHMM)
+        assert_eq!(
+            parse_pdf_stem_datetime("231120260705", ref_date),
+            Some(dt(2026, 11, 23, 7, 5, 0))
+        );
+        // Print 2a: 231120260706.pdf (DDMMYYYYHHMM)
+        assert_eq!(
+            parse_pdf_stem_datetime("231120260706", ref_date),
+            Some(dt(2026, 11, 23, 7, 6, 0))
+        );
+        // Print 2b: 070723112026.pdf (HHMMDDMMYYYY - invertido!)
+        assert_eq!(
+            parse_pdf_stem_datetime("070723112026", ref_date),
+            Some(dt(2026, 11, 23, 7, 7, 0))
+        );
+        // Print 3: 181120260716.pdf
+        let ref_18 = NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
+        assert_eq!(
+            parse_pdf_stem_datetime("181120260716", ref_18),
+            Some(dt(2026, 11, 18, 7, 16, 0))
+        );
+        // Com sufixo de cópia do Windows "(1)"
+        assert_eq!(
+            parse_pdf_stem_datetime("070723112026 (1)", ref_date),
+            Some(dt(2026, 11, 23, 7, 7, 0))
+        );
+    }
+
+    #[test]
+    fn test_parear_prints_whatsapp() {
+        let limite = 2 * 60; // 2 minutos
+
+        // Cenário real dos Prints 1 e 2 juntos:
+        // PDF 1 (07:05) -> Foto 1 enviada às 07:06:10 (toalhas)
+        // PDF 2 (07:06) -> Foto 2 enviada às 07:07:05 (mostarda)
+        // PDF 3 (07:07) -> Foto 3 enviada às 07:07:45 (sued)
+        let pdfs = vec![
+            dt(2026, 11, 23, 7, 5, 0),
+            dt(2026, 11, 23, 7, 6, 0),
+            dt(2026, 11, 23, 7, 7, 0),
+        ];
+        let imgs = vec![
+            dt(2026, 11, 23, 7, 6, 10),
+            dt(2026, 11, 23, 7, 7, 5),
+            dt(2026, 11, 23, 7, 7, 45),
+        ];
+
+        let (atrib, orfas) = parear_monotonic_dp(&pdfs, &imgs, limite);
+        assert!(orfas.is_empty());
+        assert_eq!(atrib[0], vec![0]); // PDF 07:05 -> Foto 07:06:10
+        assert_eq!(atrib[1], vec![1]); // PDF 07:06 -> Foto 07:07:05
+        assert_eq!(atrib[2], vec![2]); // PDF 07:07 -> Foto 07:07:45
+
+        // Cenário do Print 3: 1 PDF (07:16) com 2 fotos (07:16:30 e 07:17:10)
+        let pdfs_p3 = vec![dt(2026, 11, 18, 7, 16, 0)];
+        let imgs_p3 = vec![
+            dt(2026, 11, 18, 7, 16, 30),
+            dt(2026, 11, 18, 7, 17, 10),
+        ];
+        let (atrib_p3, orfas_p3) = parear_monotonic_dp(&pdfs_p3, &imgs_p3, limite);
+        assert!(orfas_p3.is_empty());
+        assert_eq!(atrib_p3[0], vec![0, 1]);
+    }
 }
