@@ -448,8 +448,8 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
 
   const itemUnico = itensSelecionadosObj.length === 1 ? itensSelecionadosObj[0] : null;
 
-  // Fila concorrente controlada (3 workers) para carregar miniaturas de todas as imagens visíveis na pasta,
-  // igual ao Windows Explorer, sem travar a rede Z:\
+  // Fila concorrente controlada com BATCHING de atualizações para evitar re-renders excessivos
+  // e podar o cache de memória da WebView quando ultrapassar 350 itens
   useEffect(() => {
     const imagensParaCarregar = itensVisiveis.filter(
       (it) => !it.eh_pasta && IMAGE_EXTS.has(it.extensao) && !thumbMapRef.current[it.caminho]
@@ -458,7 +458,30 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
 
     let cancelado = false;
     let cursor = 0;
-    const CONCORRENCIA = 3;
+    const CONCORRENCIA = 2;
+
+    let pendingBatch: Record<string, ImagemPreviewInfo> = {};
+    let batchTimer: number | null = null;
+
+    const flushBatch = () => {
+      if (Object.keys(pendingBatch).length === 0) return;
+      const snapshot = { ...pendingBatch };
+      pendingBatch = {};
+      setThumbMap((prev) => {
+        let atual = { ...prev, ...snapshot };
+        // Poda preventiva: se o cache de miniaturas na RAM do WebView ultrapassar 350 itens, poda os mais antigos
+        const chaves = Object.keys(atual);
+        if (chaves.length > 350) {
+          const podado: Record<string, ImagemPreviewInfo> = {};
+          const manter = chaves.slice(chaves.length - 200);
+          for (const k of manter) {
+            podado[k] = atual[k];
+          }
+          atual = podado;
+        }
+        return atual;
+      });
+    };
 
     const worker = async () => {
       while (!cancelado) {
@@ -471,14 +494,26 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
             caminho: alvo.caminho,
           });
           if (cancelado) break;
-          setThumbMap((prev) => {
-            if (prev[alvo.caminho]) return prev;
-            return { ...prev, [alvo.caminho]: info };
-          });
+          thumbMapRef.current[alvo.caminho] = info;
+          pendingBatch[alvo.caminho] = info;
+
+          if (Object.keys(pendingBatch).length >= 4) {
+            if (batchTimer) {
+              window.clearTimeout(batchTimer);
+              batchTimer = null;
+            }
+            flushBatch();
+          } else if (!batchTimer) {
+            batchTimer = window.setTimeout(() => {
+              batchTimer = null;
+              flushBatch();
+            }, 120);
+          }
         } catch {
           // ignora arquivo corrompido ou inacessível
         }
       }
+      flushBatch();
     };
 
     const workers = Array.from(
@@ -489,6 +524,11 @@ export function ExplorerPage({ onNavigate }: { onNavigate?: (id: ModuloId) => vo
 
     return () => {
       cancelado = true;
+      if (batchTimer) {
+        window.clearTimeout(batchTimer);
+        batchTimer = null;
+      }
+      flushBatch();
     };
   }, [itensVisiveis]);
 

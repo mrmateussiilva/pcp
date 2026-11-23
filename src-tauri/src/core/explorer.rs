@@ -16,9 +16,68 @@ use tiff::tags::Tag;
 
 static PREVIEW_CACHE: OnceLock<Mutex<HashMap<String, (u64, u64, ImagemPreviewInfo)>>> =
     OnceLock::new();
+static HEAVY_DECODE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 fn get_preview_cache() -> &'static Mutex<HashMap<String, (u64, u64, ImagemPreviewInfo)>> {
     PREVIEW_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn get_heavy_decode_lock() -> &'static Mutex<()> {
+    HEAVY_DECODE_LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn thumb_cache_dir() -> PathBuf {
+    dirs::cache_dir()
+        .unwrap_or_else(|| dirs::data_local_dir().unwrap_or_else(|| PathBuf::from(".")))
+        .join("pcp-central")
+        .join("thumbcache")
+}
+
+fn thumb_cache_key(caminho: &str, tamanho: u64, mtime_ms: u64) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut h1 = DefaultHasher::new();
+    caminho.to_lowercase().hash(&mut h1);
+    let k1 = h1.finish();
+
+    let mut h2 = DefaultHasher::new();
+    (tamanho, mtime_ms).hash(&mut h2);
+    let k2 = h2.finish();
+
+    format!("{:016x}_{:016x}", k1, k2)
+}
+
+fn tentar_ler_cache_disco(key: &str) -> Option<ImagemPreviewInfo> {
+    let dir = thumb_cache_dir();
+    let json_path = dir.join(format!("{key}.json"));
+    let jpg_path = dir.join(format!("{key}.jpg"));
+
+    if !json_path.is_file() || !jpg_path.is_file() {
+        return None;
+    }
+
+    let meta_str = fs::read_to_string(&json_path).ok()?;
+    let mut info: ImagemPreviewInfo = serde_json::from_str(&meta_str).ok()?;
+
+    let jpg_bytes = fs::read(&jpg_path).ok()?;
+    info.miniatura_data_url = Some(format!("data:image/jpeg;base64,{}", BASE64.encode(&jpg_bytes)));
+    Some(info)
+}
+
+fn salvar_em_cache_disco(key: &str, info: &ImagemPreviewInfo, jpg_bytes: &[u8]) {
+    let dir = thumb_cache_dir();
+    if let Err(_) = fs::create_dir_all(&dir) {
+        return;
+    }
+    let json_path = dir.join(format!("{key}.json"));
+    let jpg_path = dir.join(format!("{key}.jpg"));
+
+    let mut meta_info = info.clone();
+    meta_info.miniatura_data_url = None;
+    if let Ok(json_str) = serde_json::to_string(&meta_info) {
+        let _ = fs::write(&json_path, json_str);
+    }
+    let _ = fs::write(&jpg_path, jpg_bytes);
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -662,7 +721,7 @@ fn read_tiff_rational(decoder: &mut Decoder<BufReader<File>>, tag: Tag) -> Optio
     }
 }
 
-fn gerar_miniatura_rgb(rgb: &image::RgbImage, max_lado: u32) -> Option<String> {
+fn gerar_miniatura_rgb(rgb: &image::RgbImage, max_lado: u32) -> Option<(String, Vec<u8>)> {
     let (w, h) = rgb.dimensions();
     if w == 0 || h == 0 {
         return None;
@@ -688,15 +747,17 @@ fn gerar_miniatura_rgb(rgb: &image::RgbImage, max_lado: u32) -> Option<String> {
     };
 
     let mut out = Cursor::new(Vec::new());
-    let mut enc = JpegEncoder::new_with_quality(&mut out, 82);
+    let mut enc = JpegEncoder::new_with_quality(&mut out, 80);
     enc.encode(resized.as_raw(), nw, nh, image::ExtendedColorType::Rgb8)
         .ok()?;
-    Some(format!("data:image/jpeg;base64,{}", BASE64.encode(out.into_inner())))
+    let bytes = out.into_inner();
+    let data_url = format!("data:image/jpeg;base64,{}", BASE64.encode(&bytes));
+    Some((data_url, bytes))
 }
 
 /// Tenta localizar uma miniatura JPEG já existente (ex: `_miniaturas/<stem>.jpg` ou bolsinha `<stem>.jpeg`)
 /// para evitar decodificar centenas de MB via rede quando a miniatura já existe no diretório.
-fn tentar_miniatura_existente(p: &Path, max_lado: u32) -> Option<String> {
+fn tentar_miniatura_existente(p: &Path, max_lado: u32) -> Option<(String, Vec<u8>)> {
     let parent = p.parent()?;
     let stem = p.file_stem()?.to_str()?;
     let candidatos = [
@@ -709,8 +770,8 @@ fn tentar_miniatura_existente(p: &Path, max_lado: u32) -> Option<String> {
         if cand.is_file() {
             if let Ok(img) = image::open(&cand) {
                 let rgb = img.to_rgb8();
-                if let Some(url) = gerar_miniatura_rgb(&rgb, max_lado) {
-                    return Some(url);
+                if let Some(res) = gerar_miniatura_rgb(&rgb, max_lado) {
+                    return Some(res);
                 }
             }
         }
@@ -718,7 +779,7 @@ fn tentar_miniatura_existente(p: &Path, max_lado: u32) -> Option<String> {
     None
 }
 
-/// Extrai metadados técnicos (px, DPI, cm, modo de cor, ICC) e miniatura leve com cache em memória.
+/// Extrai metadados técnicos (px, DPI, cm, modo de cor, ICC) e miniatura leve com cache persistente em SSD + RAM.
 pub fn inspecionar_imagem(caminho: &str) -> Result<ImagemPreviewInfo, String> {
     let p = Path::new(caminho);
     if !p.is_file() {
@@ -738,7 +799,9 @@ pub fn inspecionar_imagem(caminho: &str) -> Result<ImagemPreviewInfo, String> {
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
 
-    // 1. Verifica cache em memória (retorno instantâneo ao navegar entre pastas)
+    let cache_key = thumb_cache_key(caminho, tamanho, mtime_ms);
+
+    // 1. Verifica cache em memória (retorno instantâneo)
     {
         let cache = get_preview_cache().lock().unwrap();
         if let Some((c_sz, c_mt, info)) = cache.get(caminho) {
@@ -748,7 +811,17 @@ pub fn inspecionar_imagem(caminho: &str) -> Result<ImagemPreviewInfo, String> {
         }
     }
 
-    // 2. TIFF: leitura rápida de cabeçalho + atalho de miniatura existente ou decodificação SIMD
+    // 2. Verifica cache persistente no SSD local (zero leitura na rede Z:\ e zero alocação de RAM)
+    if let Some(info_disco) = tentar_ler_cache_disco(&cache_key) {
+        let mut cache = get_preview_cache().lock().unwrap();
+        if cache.len() > 600 {
+            cache.clear();
+        }
+        cache.insert(caminho.to_string(), (tamanho, mtime_ms, info_disco.clone()));
+        return Ok(info_disco);
+    }
+
+    // 3. TIFF: leitura rápida apenas de cabeçalho + atalho de miniatura local ou decodificação com semáforo
     if ext == "tif" || ext == "tiff" {
         let file = File::open(p).map_err(|e| format!("Erro ao abrir TIFF: {e}"))?;
         let mut decoder = Decoder::new(BufReader::with_capacity(256 * 1024, file))
@@ -790,18 +863,29 @@ pub fn inspecionar_imagem(caminho: &str) -> Result<ImagemPreviewInfo, String> {
             .map(|c| format!("{c:?}"))
             .unwrap_or_else(|_| "RGB".to_string());
 
-        let miniatura_data_url = tentar_miniatura_existente(p, 280).or_else(|| {
-            if tamanho <= 450 * 1024 * 1024 {
-                crate::core::imaging::load_image_with_meta(p, DPI_FALLBACK)
-                    .ok()
-                    .and_then(|loaded| {
-                        let rgb = loaded.image.to_rgb8();
-                        gerar_miniatura_rgb(&rgb, 280)
-                    })
+        drop(decoder);
+
+        let (miniatura_data_url, jpg_bytes_opt) = if let Some((url, bytes)) = tentar_miniatura_existente(p, 280) {
+            (Some(url), Some(bytes))
+        } else if tamanho <= 450 * 1024 * 1024 {
+            // Semáforo estrito: apenas 1 decodificação pesada por vez em todo o sistema
+            let _guard = get_heavy_decode_lock().lock().unwrap();
+            if let Ok(loaded) = crate::core::imaging::load_image_with_meta(p, DPI_FALLBACK) {
+                let rgb = loaded.image.to_rgb8();
+                drop(loaded); // libera a imagem TIFF gigante original imediatamente
+                let thumb_res = gerar_miniatura_rgb(&rgb, 280);
+                drop(rgb); // libera a matriz RGB da RAM imediatamente
+                if let Some((url, bytes)) = thumb_res {
+                    (Some(url), Some(bytes))
+                } else {
+                    (None, None)
+                }
             } else {
-                None
+                (None, None)
             }
-        });
+        } else {
+            (None, None)
+        };
 
         let info = ImagemPreviewInfo {
             largura_px: w,
@@ -815,20 +899,33 @@ pub fn inspecionar_imagem(caminho: &str) -> Result<ImagemPreviewInfo, String> {
             miniatura_data_url,
         };
 
+        if let Some(ref bytes) = jpg_bytes_opt {
+            salvar_em_cache_disco(&cache_key, &info, bytes);
+        }
+
         let mut cache = get_preview_cache().lock().unwrap();
-        if cache.len() > 1200 {
+        if cache.len() > 600 {
             cache.clear();
         }
         cache.insert(caminho.to_string(), (tamanho, mtime_ms, info.clone()));
         return Ok(info);
     }
 
-    // 3. JPEG / PNG / etc.
-    let dyn_img = image::open(p).map_err(|e| format!("Não foi possível ler imagem: {e}"))?;
-    let (w, h) = dyn_img.dimensions();
-    let modo_cor = format!("{:?}", dyn_img.color());
-    let rgb = dyn_img.to_rgb8();
-    let miniatura_data_url = gerar_miniatura_rgb(&rgb, 280);
+    // 4. JPEG / PNG / etc.
+    let (miniatura_data_url, jpg_bytes_opt, w, h, modo_cor) = {
+        let dyn_img = image::open(p).map_err(|e| format!("Não foi possível ler imagem: {e}"))?;
+        let (w, h) = dyn_img.dimensions();
+        let modo_cor = format!("{:?}", dyn_img.color());
+        let rgb = dyn_img.to_rgb8();
+        drop(dyn_img);
+        let res = gerar_miniatura_rgb(&rgb, 280);
+        drop(rgb);
+        let (url, bytes) = match res {
+            Some((u, b)) => (Some(u), Some(b)),
+            None => (None, None),
+        };
+        (url, bytes, w, h, modo_cor)
+    };
 
     let info = ImagemPreviewInfo {
         largura_px: w,
@@ -842,8 +939,12 @@ pub fn inspecionar_imagem(caminho: &str) -> Result<ImagemPreviewInfo, String> {
         miniatura_data_url,
     };
 
+    if let Some(ref bytes) = jpg_bytes_opt {
+        salvar_em_cache_disco(&cache_key, &info, bytes);
+    }
+
     let mut cache = get_preview_cache().lock().unwrap();
-    if cache.len() > 1200 {
+    if cache.len() > 600 {
         cache.clear();
     }
     cache.insert(caminho.to_string(), (tamanho, mtime_ms, info.clone()));
