@@ -214,8 +214,8 @@ export function CortadorPage() {
         modo === "Automático"
           ? await invoke<CortadorSimulacao>("cortador_simular_auto", { payload: autoCfg })
           : await invoke<CortadorSimulacao>("cortador_simular_medidas", {
-              payload: { ...medCfg, medidas: parseListaMedidas() },
-            });
+            payload: { ...medCfg, medidas: parseListaMedidas() },
+          });
       setSimulacao(res);
       setAbaSaida("preview");
     } catch (e) {
@@ -365,11 +365,10 @@ export function CortadorPage() {
               <button
                 key={m}
                 onClick={() => setModo(m)}
-                className={`py-1.5 rounded text-xs font-mono font-medium cursor-pointer transition-colors ${
-                  modo === m
+                className={`py-1.5 rounded text-xs font-mono font-medium cursor-pointer transition-colors ${modo === m
                     ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-bold shadow-2xs"
                     : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
-                }`}
+                  }`}
               >
                 {m.toUpperCase()}
               </button>
@@ -642,21 +641,19 @@ export function CortadorPage() {
           <div className="inline-flex p-0.5 rounded border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 self-start gap-1 font-mono text-xs">
             <button
               onClick={() => setAbaSaida("logs")}
-              className={`px-3 py-1 rounded cursor-pointer transition-colors ${
-                abaSaida === "logs"
+              className={`px-3 py-1 rounded cursor-pointer transition-colors ${abaSaida === "logs"
                   ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-semibold shadow-2xs"
                   : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
+                }`}
             >
               CONSOLE DE SAÍDA
             </button>
             <button
               onClick={() => setAbaSaida("preview")}
-              className={`px-3 py-1 rounded cursor-pointer transition-colors ${
-                abaSaida === "preview"
+              className={`px-3 py-1 rounded cursor-pointer transition-colors ${abaSaida === "preview"
                   ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 font-semibold shadow-2xs"
                   : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
+                }`}
             >
               PREVIEW DE CORTE ({simulacao?.total_paineis ?? 0})
             </button>
